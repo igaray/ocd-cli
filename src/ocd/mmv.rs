@@ -378,6 +378,7 @@ fn user_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
+    use ocd::mmv::Position;
     use ocd::mmv::apply_lower_case;
     use ocd::mmv::apply_upper_case;
     use ocd::mmv::apply_title_case;
@@ -385,8 +386,10 @@ mod test {
     use ocd::mmv::apply_camel_case_join;
     use ocd::mmv::apply_camel_case_split;
     use ocd::mmv::apply_replace;
-    use ocd::mmv::apply_sanitize;
+    // use ocd::mmv::apply_sanitize;
     use ocd::mmv::apply_pattern_match;
+    use ocd::mmv::apply_insert;
+    use ocd::mmv::apply_delete;
 
     #[test]
     fn lower_case_test() {
@@ -485,7 +488,6 @@ mod test {
 
     #[test]
     fn sanitize_test() {
-        assert_eq!(apply_sanitize(""), "");
         panic!("Not implemented!")
     }
 
@@ -496,32 +498,16 @@ mod test {
     }
 
     #[test]
-    fn extension_add_test() {
-        panic!("Not implemented!")
-    }
-
-    #[test]
-    fn extension_remove_test() {
-        panic!("Not implemented!")
-    }
-
-    #[test]
     fn insert_test() {
-        panic!("Not implemented!")
-    }
-
-    #[test]
-    fn interactive_tokenize_test() {
-        panic!("Not implemented!")
-    }
-
-    #[test]
-    fn interactive_pattern_match_test() {
-        panic!("Not implemented!")
+        assert_eq!(apply_insert("aa bb", " cc", &Position::End), "aa bb cc");
+        assert_eq!(apply_insert("aa bb", " cc", &Position::Index{value: 2}), "aa cc bb");
+        assert_eq!(apply_insert("aa bb", "cc ", &Position::Index{value: 0}), "cc aa bb");
     }
 
     #[test]
     fn delete_test() {
-        panic!("Not implemented!")
+        assert_eq!(apply_delete("aa bb cc", 0, &Position::End), "");
+        assert_eq!(apply_delete("aa bb cc", 0, &Position::Index{value: 2}), "bb cc");
+        assert_eq!(apply_delete("aa bb cc", 0, &Position::Index{value: 42}), "");
     }
 }
