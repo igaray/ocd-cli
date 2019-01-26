@@ -12,9 +12,9 @@
 // [x] implement upper case
 // [X] DRY lexer
 // [ ] reorder match branches to match enum order
-// [ ] mmv tests
-// [ ] ask for user input
-// [ ] unbuffered input
+// [x] mmv tests
+// [x] ask for user input
+// [x] unbuffered input
 // [ ] implement sentence case
 // [ ] implement title case
 // [ ] implement camelcase join

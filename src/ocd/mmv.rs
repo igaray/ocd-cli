@@ -1,3 +1,4 @@
+extern crate dialoguer;
 extern crate glob;
 extern crate walkdir;
 
@@ -5,6 +6,7 @@ use std::fs;
 use std::collections::HashMap;
 use std::path::{PathBuf};
 use self::walkdir::WalkDir;
+use self::dialoguer::Confirmation;
 
 use ocd::config::{Config, Mode};
 
@@ -332,7 +334,7 @@ fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
 fn execute_rules(config: &Config, buffer: &HashMap<PathBuf, PathBuf>) -> Result<(), &'static str> {
     for (src, dst) in buffer {
         println!("Moving '{:?}' to '{:?}'", src, dst);
-        if config.dryrun {
+        if !config.dryrun {
             match fs::rename(src, dst) {
                 Ok(_) => {
                     // if config.undo {
@@ -368,12 +370,15 @@ fn new_buffer(files: &[PathBuf]) -> HashMap<PathBuf, PathBuf>{
 
 fn print_buffer<S: ::std::hash::BuildHasher>(buffer: &HashMap<PathBuf, PathBuf, S>) {
     for (src, dst) in buffer {
-      println!("    {:?} => {:?}", src, dst)
+        println!("    {:?} => {:?}", src, dst)
     }
 }
 
 fn user_confirm() -> bool {
-    false
+    match Confirmation::new().with_text("Do you want to continue?").interact() {
+        Ok(cont) => cont,
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
