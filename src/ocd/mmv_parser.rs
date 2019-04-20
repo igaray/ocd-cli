@@ -1,7 +1,7 @@
-use ocd::mmv::{Position, Rule};
-use ocd::mmv_lexer::Token;
+use crate::ocd::mmv::{Position, Rule};
+use crate::ocd::mmv_lexer::Token;
 
-pub fn parse(_config: &::ocd::config::Config, tokens: &[::ocd::mmv_lexer::Token]) -> Result<Vec<Rule>, &'static str> {
+pub fn parse(_config: &crate::ocd::config::Config, tokens: &[crate::ocd::mmv_lexer::Token]) -> Result<Vec<Rule>, &'static str> {
     let mut rules = Vec::new();
     match tokens.len() {
         0 => Ok(rules),

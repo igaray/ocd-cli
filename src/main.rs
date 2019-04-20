@@ -11,10 +11,10 @@
 // [x] implement file move
 // [x] implement upper case
 // [X] DRY lexer
-// [ ] reorder match branches to match enum order
 // [x] mmv tests
 // [x] ask for user input
 // [x] unbuffered input
+// [ ] refactor config
 // [ ] implement sentence case
 // [ ] implement title case
 // [ ] implement camelcase join
@@ -55,11 +55,13 @@
 // [ ] incorporate fix_tags code under a new id3 command
 // [ ] incorporate elephant
 // [ ] output usage if no command given
+// [ ] reorder match branches to match enum order
 
 mod ocd;
 
 use std::process;
-use ocd::config::{Command, Config};
+use ocd::Command;
+use ocd::config::Config;
 
 fn main() {
     let config = Config::new().with_args().unwrap_or_else(|error| {
@@ -68,17 +70,17 @@ fn main() {
     });
 
     match config.subcommand {
-        Some(Command::MassMove) => {
-            if let Err(reason) = ocd::mmv::run(&config) {
-                eprintln!("{}", reason);
-                process::exit(1)
-            }
+        Some(Command::MassRename{ .. }) => {
+            // if let Err(reason) = ocd::mmv::run(&config) {
+            //     eprintln!("{}", reason);
+            //     process::exit(1)
+            // }
         },
-        Some(Command::TimeStampSort) => {
-            if let Err(reason) = ocd::tss::run(&config) {
-                eprintln!("{}", reason);
-                process::exit(1)
-            }
+        Some(Command::TimeStampSort{ .. }) => {
+            // if let Err(reason) = ocd::tss::run(&config) {
+            //     eprintln!("{}", reason);
+            //     process::exit(1)
+            // }
         },
         None => {}
     }

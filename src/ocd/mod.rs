@@ -1,14 +1,17 @@
 pub mod config;
 pub mod mmv;
-pub mod mmv_lexer;
-pub mod mmv_parser;
 pub mod tss;
+mod mmv_lexer;
+mod mmv_parser;
 
-// use ocd::config::Config;
-// use ocd::config::Verbosity;
-// use std::fs;
-// use std::io;
-// use std::path::{Path,PathBuf};
+use crate::ocd::mmv::MassRenameConfig;
+use crate::ocd::tss::TimeStampSortConfig;
+
+#[derive(Clone, Debug)]
+pub enum Command {
+    MassRename{config: MassRenameConfig},
+    TimeStampSort{config: TimeStampSortConfig},
+}
 
 // pub fn create_directory(args: &clap::ArgMatches, directory: &Path) -> io::Result<()> {
 //     if !args.is_present("dry-run") {

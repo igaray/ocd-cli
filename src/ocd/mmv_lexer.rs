@@ -1,7 +1,6 @@
-use ocd::config::Config;
-use ::ocd::config::Verbosity;
+use crate::ocd::config::{Config, Verbosity};
 
-#[derive(Debug, PartialEq)] 
+#[derive(Debug, PartialEq)]
 
 pub enum Token {
     Comma,
