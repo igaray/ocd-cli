@@ -1,10 +1,8 @@
 pub mod config;
-pub mod mmv;
+pub mod mrn;
 pub mod tss;
-mod mmv_lexer;
-mod mmv_parser;
 
-use crate::ocd::mmv::MassRenameConfig;
+use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 
 #[derive(Clone, Debug)]

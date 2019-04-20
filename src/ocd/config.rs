@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use crate::ocd::Command;
-use crate::ocd::mmv::MassRenameConfig;
+use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 
 #[derive(Clone, Debug)]
@@ -67,10 +67,8 @@ impl Config {
                 "Specified whether the rules are applied to directories (b), files (f) or all (a).",
             );
 
-        let mass_rename_subcommand = crate::ocd::mmv::subcommand();
-
-        let timestamp_sort_subcommand = clap::SubCommand::with_name("tss")
-            .about("Order files in directories by timestamp");
+        let mass_rename_subcommand = crate::ocd::mrn::subcommand();
+        let timestamp_sort_subcommand = crate::ocd::tss::subcommand();
 
         let mut ocd_app = clap::App::new("ocd")
             .version("0.1.0")
@@ -94,7 +92,7 @@ impl Config {
         let dir = directory_value(ocd_matches.value_of("dir").unwrap());
 
         match ocd_matches.subcommand() {
-            ("mmv", Some(subcommand_matches)) => {
+            ("mrn", Some(subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new(subcommand_matches);
                 let subcommand = Some(Command::MassRename{config: subcommand_config});
                 let config = Config {
@@ -105,8 +103,8 @@ impl Config {
                 };
                 Ok(config)
             },
-            ("tss", Some(_subcommand_matches)) => {
-                let subcommand_config = crate::ocd::tss::TimeStampSortConfig{};
+            ("tss", Some(subcommand_matches)) => {
+                let subcommand_config = TimeStampSortConfig::new(subcommand_matches);
                 let subcommand = Some(Command::TimeStampSort{config: subcommand_config});
                 let config = Config {
                     verbosity,
@@ -116,9 +114,10 @@ impl Config {
                 };
                 Ok(config)
             },
-            _ => { // Either None or Some with an incorrect string
+            _ => {
                 ocd_app.print_long_help().unwrap();
-                Err("Unexpected usage.")
+                println!("\n");
+                Err("No command supplied.")
             }
         }
     }

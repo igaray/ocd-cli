@@ -14,7 +14,9 @@
 // [x] mmv tests
 // [x] ask for user input
 // [x] unbuffered input
-// [ ] refactor config
+// [x] refactor config
+// [x] rename mmv (mass move) to mrn (mass rename)
+// [x] output usage if no command given
 // [ ] implement sentence case
 // [ ] implement title case
 // [ ] implement camelcase join
@@ -54,7 +56,6 @@
 // [ ] image sorter tests
 // [ ] incorporate fix_tags code under a new id3 command
 // [ ] incorporate elephant
-// [ ] output usage if no command given
 // [ ] reorder match branches to match enum order
 
 mod ocd;
@@ -71,16 +72,16 @@ fn main() {
 
     match config.subcommand {
         Some(Command::MassRename{ .. }) => {
-            // if let Err(reason) = ocd::mmv::run(&config) {
-            //     eprintln!("{}", reason);
-            //     process::exit(1)
-            // }
+            if let Err(reason) = crate::ocd::mrn::run(&config) {
+                eprintln!("{}", reason);
+                process::exit(1)
+            }
         },
         Some(Command::TimeStampSort{ .. }) => {
-            // if let Err(reason) = ocd::tss::run(&config) {
-            //     eprintln!("{}", reason);
-            //     process::exit(1)
-            // }
+            if let Err(reason) = crate::ocd::tss::run(&config) {
+                eprintln!("{}", reason);
+                process::exit(1)
+            }
         },
         None => {}
     }

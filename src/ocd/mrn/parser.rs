@@ -1,7 +1,7 @@
-use crate::ocd::mmv::{Position, Rule};
-use crate::ocd::mmv_lexer::Token;
+use crate::ocd::mrn::{Position, Rule};
+use crate::ocd::mrn::lexer::Token;
 
-pub fn parse(_config: &crate::ocd::config::Config, tokens: &[crate::ocd::mmv_lexer::Token]) -> Result<Vec<Rule>, &'static str> {
+pub fn parse(_config: &crate::ocd::config::Config, tokens: &[crate::ocd::mrn::lexer::Token]) -> Result<Vec<Rule>, &'static str> {
     let mut rules = Vec::new();
     match tokens.len() {
         0 => Ok(rules),
@@ -375,9 +375,9 @@ fn parse_replace<'a, 'b>(
 #[cfg(test)]
 mod test {
     use ::ocd::config::Config;
-    use ::ocd::mmv::{Position, Rule};
-    use ::ocd::mmv_lexer::tokenize;
-    use ::ocd::mmv_parser::parse;
+    use ::ocd::mrn::{Position, Rule};
+    use ::ocd::mrn::lexer::tokenize;
+    use ::ocd::mrn::parser::parse;
 
     #[test]
     fn empty_test() {

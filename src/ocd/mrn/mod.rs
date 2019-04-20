@@ -3,6 +3,9 @@ extern crate dialoguer;
 extern crate glob;
 extern crate walkdir;
 
+mod lexer;
+mod parser;
+
 use std::fs;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -161,7 +164,7 @@ pub fn subcommand<'a, 'b>() -> clap::App<'a, 'b> {
             it                    Interactive tokenize                 \n\
             ");
 
-    clap::SubCommand::with_name("mmv")
+    clap::SubCommand::with_name("mrn")
         .about("Mass-rename files.")
         .args(&[
             // Flags
@@ -182,8 +185,8 @@ pub fn subcommand<'a, 'b>() -> clap::App<'a, 'b> {
 pub fn run(config: &Config) -> Result<(), &str> {
     if let Some(Command::MassRename{config: ref mrn_config}) = config.subcommand {
         let rules_raw = mrn_config.rules_raw.clone().unwrap();
-        let tokens = crate::ocd::mmv_lexer::tokenize(&config, &rules_raw)?;
-        let rules = crate::ocd::mmv_parser::parse(&config, &tokens)?;
+        let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
+        let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
         let files = entries(&config)?;
 
         println!("Config:\n{:#?}", &config);
@@ -523,18 +526,18 @@ fn user_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use ocd::mmv::Position;
-    use ocd::mmv::apply_lower_case;
-    use ocd::mmv::apply_upper_case;
-    use ocd::mmv::apply_title_case;
-    use ocd::mmv::apply_sentence_case;
-    use ocd::mmv::apply_camel_case_join;
-    use ocd::mmv::apply_camel_case_split;
-    use ocd::mmv::apply_replace;
-    // use ocd::mmv::apply_sanitize;
-    use ocd::mmv::apply_pattern_match;
-    use ocd::mmv::apply_insert;
-    use ocd::mmv::apply_delete;
+    use ocd::mrn::Position;
+    use ocd::mrn::apply_lower_case;
+    use ocd::mrn::apply_upper_case;
+    use ocd::mrn::apply_title_case;
+    use ocd::mrn::apply_sentence_case;
+    use ocd::mrn::apply_camel_case_join;
+    use ocd::mrn::apply_camel_case_split;
+    use ocd::mrn::apply_replace;
+    // use ocd::mrn::apply_sanitize;
+    use ocd::mrn::apply_pattern_match;
+    use ocd::mrn::apply_insert;
+    use ocd::mrn::apply_delete;
 
     #[test]
     fn lower_case_test() {
