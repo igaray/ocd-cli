@@ -540,18 +540,18 @@ fn user_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use ocd::mrn::apply_camel_case_join;
-    use ocd::mrn::apply_camel_case_split;
-    use ocd::mrn::apply_lower_case;
-    use ocd::mrn::apply_replace;
-    use ocd::mrn::apply_sentence_case;
-    use ocd::mrn::apply_title_case;
-    use ocd::mrn::apply_upper_case;
-    use ocd::mrn::Position;
+    use crate::ocd::mrn::apply_camel_case_join;
+    use crate::ocd::mrn::apply_camel_case_split;
+    use crate::ocd::mrn::apply_lower_case;
+    use crate::ocd::mrn::apply_replace;
+    use crate::ocd::mrn::apply_sentence_case;
+    use crate::ocd::mrn::apply_title_case;
+    use crate::ocd::mrn::apply_upper_case;
+    use crate::ocd::mrn::Position;
     // use ocd::mrn::apply_sanitize;
-    use ocd::mrn::apply_delete;
-    use ocd::mrn::apply_insert;
-    use ocd::mrn::apply_pattern_match;
+    use crate::ocd::mrn::apply_delete;
+    use crate::ocd::mrn::apply_insert;
+    use crate::ocd::mrn::apply_pattern_match;
 
     #[test]
     fn lower_case_test() {

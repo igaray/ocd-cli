@@ -61,8 +61,8 @@
 
 mod ocd;
 
-use ocd::config::Config;
-use ocd::Command;
+use crate::ocd::config::Config;
+use crate::ocd::Command;
 use std::process;
 
 fn main() {

@@ -377,10 +377,10 @@ fn parse_replace<'a, 'b>(
 
 #[cfg(test)]
 mod test {
-    use ::ocd::config::Config;
-    use ::ocd::mrn::lexer::tokenize;
-    use ::ocd::mrn::parser::parse;
-    use ::ocd::mrn::{Position, Rule};
+    use crate::ocd::config::Config;
+    use crate::ocd::mrn::lexer::tokenize;
+    use crate::ocd::mrn::parser::parse;
+    use crate::ocd::mrn::{Position, Rule};
 
     #[test]
     fn empty_test() {
