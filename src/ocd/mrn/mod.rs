@@ -6,14 +6,14 @@ extern crate walkdir;
 mod lexer;
 mod parser;
 
-use std::fs;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use self::walkdir::WalkDir;
 use self::dialoguer::Confirmation;
-use crate::ocd::Command;
+use self::walkdir::WalkDir;
 use crate::ocd::config::Config;
 use crate::ocd::config::Mode;
+use crate::ocd::Command;
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -65,7 +65,7 @@ pub struct MassRenameConfig {
 
 impl MassRenameConfig {
     pub fn new(matches: &clap::ArgMatches) -> MassRenameConfig {
-        MassRenameConfig{
+        MassRenameConfig {
             dryrun: matches.is_present("dry-run"),
             git: matches.is_present("git"),
             recurse: matches.is_present("recurse"),
@@ -88,7 +88,7 @@ fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
     let rules = matches.value_of("rules");
     match rules {
         Some(rules_input) => Some(rules_input.to_string()),
-        None => None
+        None => None,
     }
 }
 
@@ -131,38 +131,40 @@ pub fn subcommand<'a, 'b>() -> clap::App<'a, 'b> {
         .index(1)
         .required(true)
         .takes_value(true)
-        .help("\
-            The rewrite rules to apply to filenames.                   \n\
-            The value is a comma-separated list of the following rules:\n\
-                                                                       \n\
-            lc                    Lower case                           \n\
-            uc                    Upper case                           \n\
-            tc                    Title case                           \n\
-            sc                    Sentence case                        \n\
-            ccj                   Camel case join                      \n\
-            ccs                   Camel case split                     \n\
-            i <text> <position>   Insert                               \n\
-            d <from> <to>         Delete                               \n\
-            s                     Sanitize                             \n\
-            r <match> <text>      Replace                              \n\
-            sd                    Substitute space dash                \n\
-            sp                    Substitute space period              \n\
-            su                    Substitute space underscore          \n\
-            dp                    Substitute dash period               \n\
-            ds                    Substitute dash space                \n\
-            du                    Substitute dash underscore           \n\
-            pd                    Substitute period dash               \n\
-            ps                    Substitute period space              \n\
-            pu                    Substitute period under              \n\
-            ud                    Substitute underscore dash           \n\
-            up                    Substitute underscore period         \n\
-            us                    Substitute underscore space          \n\
-            ea <extension>        Extension add                        \n\
-            er                    Extension remove                     \n\
-            p <match> <pattern>   Pattern match                        \n\
-            ip                    Interactive pattern match            \n\
-            it                    Interactive tokenize                 \n\
-            ");
+        .help(
+            "\
+             The rewrite rules to apply to filenames.                   \n\
+             The value is a comma-separated list of the following rules:\n\
+             \n\
+             lc                    Lower case                           \n\
+             uc                    Upper case                           \n\
+             tc                    Title case                           \n\
+             sc                    Sentence case                        \n\
+             ccj                   Camel case join                      \n\
+             ccs                   Camel case split                     \n\
+             i <text> <position>   Insert                               \n\
+             d <from> <to>         Delete                               \n\
+             s                     Sanitize                             \n\
+             r <match> <text>      Replace                              \n\
+             sd                    Substitute space dash                \n\
+             sp                    Substitute space period              \n\
+             su                    Substitute space underscore          \n\
+             dp                    Substitute dash period               \n\
+             ds                    Substitute dash space                \n\
+             du                    Substitute dash underscore           \n\
+             pd                    Substitute period dash               \n\
+             ps                    Substitute period space              \n\
+             pu                    Substitute period under              \n\
+             ud                    Substitute underscore dash           \n\
+             up                    Substitute underscore period         \n\
+             us                    Substitute underscore space          \n\
+             ea <extension>        Extension add                        \n\
+             er                    Extension remove                     \n\
+             p <match> <pattern>   Pattern match                        \n\
+             ip                    Interactive pattern match            \n\
+             it                    Interactive tokenize                 \n\
+             ",
+        );
 
     clap::SubCommand::with_name("mrn")
         .about("Mass-rename files.")
@@ -173,17 +175,18 @@ pub fn subcommand<'a, 'b>() -> clap::App<'a, 'b> {
             undo_arg,
             yes_arg,
             recurse_arg,
-
             // Options
             glob_arg,
-
             // Positional
             rules_arg,
         ])
 }
 
 pub fn run(config: &Config) -> Result<(), &str> {
-    if let Some(Command::MassRename{config: ref mrn_config}) = config.subcommand {
+    if let Some(Command::MassRename {
+        config: ref mrn_config,
+    }) = config.subcommand
+    {
         let rules_raw = mrn_config.rules_raw.clone().unwrap();
         let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
         let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
@@ -199,10 +202,12 @@ pub fn run(config: &Config) -> Result<(), &str> {
 
         if mrn_config.yes || user_confirm() {
             execute_rules(&config, &buffer)
+        } else {
+            Ok(())
         }
-        else { Ok(()) }
+    } else {
+        Ok(())
     }
-    else { Ok(()) }
 }
 
 fn entries(config: &Config) -> Result<Vec<PathBuf>, &'static str> {
@@ -223,7 +228,10 @@ fn entries(config: &Config) -> Result<Vec<PathBuf>, &'static str> {
     */
     let mut entries_vec: Vec<PathBuf> = Vec::new();
 
-    if let Some(crate::ocd::Command::MassRename{ config: ref mrn_config }) = config.subcommand {
+    if let Some(crate::ocd::Command::MassRename {
+        config: ref mrn_config,
+    }) = config.subcommand
+    {
         match (mrn_config.recurse, &mrn_config.glob, &config.mode) {
             (false, None, Mode::Files) => match fs::read_dir(&config.dir) {
                 Ok(iterator) => {
@@ -473,7 +481,10 @@ fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
 }
 
 fn execute_rules(config: &Config, buffer: &HashMap<PathBuf, PathBuf>) -> Result<(), &'static str> {
-    if let Some(crate::ocd::Command::MassRename{ config: ref mrn_config }) = config.subcommand {
+    if let Some(crate::ocd::Command::MassRename {
+        config: ref mrn_config,
+    }) = config.subcommand
+    {
         for (src, dst) in buffer {
             println!("Moving '{:?}' to '{:?}'", src, dst);
             if !mrn_config.dryrun {
@@ -484,14 +495,14 @@ fn execute_rules(config: &Config, buffer: &HashMap<PathBuf, PathBuf>) -> Result<
                         //         println!("Saving undo information.");
                         //     }
                         // }
-                    },
+                    }
                     Err(reason) => {
                         // if !args.is_present("silent") {
                         //     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
                         // }
                         eprintln!("Error moving file: {:?}", reason);
-                        return Err("Error moving file.")
-                    },
+                        return Err("Error moving file.");
+                    }
                 }
                 // match ::ocd::move_file(config, src, dst) {
                 //     Ok(()) => {}
@@ -503,7 +514,7 @@ fn execute_rules(config: &Config, buffer: &HashMap<PathBuf, PathBuf>) -> Result<
     Ok(())
 }
 
-fn new_buffer(files: &[PathBuf]) -> HashMap<PathBuf, PathBuf>{
+fn new_buffer(files: &[PathBuf]) -> HashMap<PathBuf, PathBuf> {
     let mut buffer = HashMap::new();
     for file in files {
         buffer.insert(file.clone(), file.clone());
@@ -518,7 +529,10 @@ fn print_buffer<S: ::std::hash::BuildHasher>(buffer: &HashMap<PathBuf, PathBuf, 
 }
 
 fn user_confirm() -> bool {
-    match Confirmation::new().with_text("Do you want to continue?").interact() {
+    match Confirmation::new()
+        .with_text("Do you want to continue?")
+        .interact()
+    {
         Ok(cont) => cont,
         Err(_) => false,
     }
@@ -526,18 +540,18 @@ fn user_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use ocd::mrn::Position;
-    use ocd::mrn::apply_lower_case;
-    use ocd::mrn::apply_upper_case;
-    use ocd::mrn::apply_title_case;
-    use ocd::mrn::apply_sentence_case;
     use ocd::mrn::apply_camel_case_join;
     use ocd::mrn::apply_camel_case_split;
+    use ocd::mrn::apply_lower_case;
     use ocd::mrn::apply_replace;
+    use ocd::mrn::apply_sentence_case;
+    use ocd::mrn::apply_title_case;
+    use ocd::mrn::apply_upper_case;
+    use ocd::mrn::Position;
     // use ocd::mrn::apply_sanitize;
-    use ocd::mrn::apply_pattern_match;
-    use ocd::mrn::apply_insert;
     use ocd::mrn::apply_delete;
+    use ocd::mrn::apply_insert;
+    use ocd::mrn::apply_pattern_match;
 
     #[test]
     fn lower_case_test() {
@@ -551,12 +565,18 @@ mod test {
 
     #[test]
     fn title_case_test() {
-        assert_eq!(apply_title_case("A tItLe HaS mUlTiPlE wOrDs"), "A Title Has Multiple Words")
+        assert_eq!(
+            apply_title_case("A tItLe HaS mUlTiPlE wOrDs"),
+            "A Title Has Multiple Words"
+        )
     }
 
     #[test]
     fn sentence_case_test() {
-        assert_eq!(apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs"), "A sentence has multiple words")
+        assert_eq!(
+            apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs"),
+            "A sentence has multiple words"
+        )
     }
 
     #[test]
@@ -648,14 +668,26 @@ mod test {
     #[test]
     fn insert_test() {
         assert_eq!(apply_insert("aa bb", " cc", &Position::End), "aa bb cc");
-        assert_eq!(apply_insert("aa bb", " cc", &Position::Index{value: 2}), "aa cc bb");
-        assert_eq!(apply_insert("aa bb", "cc ", &Position::Index{value: 0}), "cc aa bb");
+        assert_eq!(
+            apply_insert("aa bb", " cc", &Position::Index { value: 2 }),
+            "aa cc bb"
+        );
+        assert_eq!(
+            apply_insert("aa bb", "cc ", &Position::Index { value: 0 }),
+            "cc aa bb"
+        );
     }
 
     #[test]
     fn delete_test() {
         assert_eq!(apply_delete("aa bb cc", 0, &Position::End), "");
-        assert_eq!(apply_delete("aa bb cc", 0, &Position::Index{value: 2}), "bb cc");
-        assert_eq!(apply_delete("aa bb cc", 0, &Position::Index{value: 42}), "");
+        assert_eq!(
+            apply_delete("aa bb cc", 0, &Position::Index { value: 2 }),
+            "bb cc"
+        );
+        assert_eq!(
+            apply_delete("aa bb cc", 0, &Position::Index { value: 42 }),
+            ""
+        );
     }
 }

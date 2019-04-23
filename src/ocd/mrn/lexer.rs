@@ -92,7 +92,7 @@ impl Tokenizer {
         Tokenizer {
             state: TokenizerState::Init,
             string: String::new(),
-            number: String::new()
+            number: String::new(),
         }
     }
 
@@ -300,7 +300,9 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*Init*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*Init*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -363,11 +365,13 @@ impl Tokenizer {
                 self.state = TokenizerState::T;
             }
             'u' => {
-                    tokens.push(Token::Comma);
+                tokens.push(Token::Comma);
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*Comma*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*Comma*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -432,7 +436,9 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*Space*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*Space*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -461,7 +467,9 @@ impl Tokenizer {
                     self.state = TokenizerState::Comma;
                 }
                 Err(_err) => {
-                    if let Verbosity::Debug = config.verbosity { eprintln!("*Number* err: {}", _err) };
+                    if let Verbosity::Debug = config.verbosity {
+                        eprintln!("*Number* err: {}", _err)
+                    };
                     self.state = TokenizerState::Error;
                 }
             },
@@ -471,7 +479,9 @@ impl Tokenizer {
                     self.state = TokenizerState::Space;
                 }
                 Err(_err) => {
-                    if let Verbosity::Debug = config.verbosity { eprintln!("*Number*: err: {}", _err) };
+                    if let Verbosity::Debug = config.verbosity {
+                        eprintln!("*Number*: err: {}", _err)
+                    };
                     self.state = TokenizerState::Error;
                 }
             },
@@ -480,7 +490,9 @@ impl Tokenizer {
                 self.state = TokenizerState::Number;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*Number* c: {}", c) };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*Number* c: {}", c)
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -492,7 +504,9 @@ impl Tokenizer {
                 self.state = TokenizerState::CC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*C*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*C*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -507,7 +521,9 @@ impl Tokenizer {
                 self.state = TokenizerState::CCS;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*CC*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*CC*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -541,7 +557,9 @@ impl Tokenizer {
                 self.state = TokenizerState::DU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*D*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*D*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -571,7 +589,9 @@ impl Tokenizer {
                 self.state = TokenizerState::EN;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*E*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*E*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -591,7 +611,9 @@ impl Tokenizer {
                 self.state = TokenizerState::END;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*EN*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*EN*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -618,7 +640,9 @@ impl Tokenizer {
                 self.state = TokenizerState::IT;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*I*")} ;
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*I*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -638,7 +662,9 @@ impl Tokenizer {
                 self.state = TokenizerState::LC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*L*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*L*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -668,7 +694,9 @@ impl Tokenizer {
                 self.state = TokenizerState::PU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*P*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*P*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -713,7 +741,9 @@ impl Tokenizer {
                 self.state = TokenizerState::SU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*S*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*S*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -741,7 +771,9 @@ impl Tokenizer {
                 self.state = TokenizerState::TC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*T*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*T*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -766,7 +798,9 @@ impl Tokenizer {
                 self.state = TokenizerState::US;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("*U*") };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("*U*")
+                };
                 self.state = TokenizerState::Error;
             }
         }
@@ -788,7 +822,14 @@ impl Tokenizer {
         self.emit_token(config, c, tokens, Token::ReplaceUnderPeriod, "*UP*")
     }
 
-    fn emit_token(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>, token: Token, error_msg: &str) {
+    fn emit_token(
+        &mut self,
+        config: &Config,
+        c: char,
+        tokens: &mut Vec<Token>,
+        token: Token,
+        error_msg: &str,
+    ) {
         match c {
             ',' => {
                 tokens.push(token);
@@ -799,11 +840,12 @@ impl Tokenizer {
                 self.state = TokenizerState::Space;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity { eprintln!("{}", error_msg) };
+                if let Verbosity::Debug = config.verbosity {
+                    eprintln!("{}", error_msg)
+                };
                 self.state = TokenizerState::Error;
             }
         }
-
     }
 }
 
@@ -1136,9 +1178,7 @@ mod test {
                 Token::Comma,
                 Token::SentenceCase,
             ],
-            tokenize(&Config::new(), "lc,uc,tc,sc")
-                .unwrap()
-                .as_slice()
+            tokenize(&Config::new(), "lc,uc,tc,sc").unwrap().as_slice()
         );
     }
 

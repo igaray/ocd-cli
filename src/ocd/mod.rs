@@ -7,8 +7,8 @@ use crate::ocd::tss::TimeStampSortConfig;
 
 #[derive(Clone, Debug)]
 pub enum Command {
-    MassRename{config: MassRenameConfig},
-    TimeStampSort{config: TimeStampSortConfig},
+    MassRename { config: MassRenameConfig },
+    TimeStampSort { config: TimeStampSortConfig },
 }
 
 // pub fn create_directory(args: &clap::ArgMatches, directory: &Path) -> io::Result<()> {

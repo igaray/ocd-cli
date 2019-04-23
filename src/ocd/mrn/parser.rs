@@ -1,7 +1,10 @@
-use crate::ocd::mrn::{Position, Rule};
 use crate::ocd::mrn::lexer::Token;
+use crate::ocd::mrn::{Position, Rule};
 
-pub fn parse(_config: &crate::ocd::config::Config, tokens: &[crate::ocd::mrn::lexer::Token]) -> Result<Vec<Rule>, &'static str> {
+pub fn parse(
+    _config: &crate::ocd::config::Config,
+    tokens: &[crate::ocd::mrn::lexer::Token],
+) -> Result<Vec<Rule>, &'static str> {
     let mut rules = Vec::new();
     match tokens.len() {
         0 => Ok(rules),
@@ -375,9 +378,9 @@ fn parse_replace<'a, 'b>(
 #[cfg(test)]
 mod test {
     use ::ocd::config::Config;
-    use ::ocd::mrn::{Position, Rule};
     use ::ocd::mrn::lexer::tokenize;
     use ::ocd::mrn::parser::parse;
+    use ::ocd::mrn::{Position, Rule};
 
     #[test]
     fn empty_test() {
@@ -630,11 +633,9 @@ mod test {
                 pattern: String::from("a"),
                 replace: String::from("b")
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"p \"a\" \"b\"").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"p \"a\" \"b\"").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -645,11 +646,9 @@ mod test {
             &[Rule::ExtensionAdd {
                 extension: String::from("mp3")
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"ea \"mp3\"").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"ea \"mp3\"").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -672,11 +671,9 @@ mod test {
                 text: String::from("text"),
                 position: Position::End
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"i \"text\" end").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"i \"text\" end").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -688,11 +685,9 @@ mod test {
                 text: String::from("text"),
                 position: Position::Index { value: 0 }
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"i \"text\" 0").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"i \"text\" 0").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -704,11 +699,9 @@ mod test {
                 text: String::from("text"),
                 position: Position::Index { value: 5 }
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"i \"text\" 5").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"i \"text\" 5").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -748,11 +741,9 @@ mod test {
                 pattern: String::from("text"),
                 replace: String::from("TEXT")
             }],
-            parse(
-                &config,
-                &tokenize(&config, &"r \"text\" \"TEXT\"").unwrap()
-            ).unwrap()
-            .as_slice()
+            parse(&config, &tokenize(&config, &"r \"text\" \"TEXT\"").unwrap())
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -783,7 +774,8 @@ mod test {
             parse(
                 &config,
                 &tokenize(&config, &"p \"{#} - {X}\" \"{1}. {2}\",ds,ps,us").unwrap()
-            ).unwrap()
+            )
+            .unwrap()
             .as_slice()
         );
     }

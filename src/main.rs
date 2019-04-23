@@ -61,9 +61,9 @@
 
 mod ocd;
 
-use std::process;
-use ocd::Command;
 use ocd::config::Config;
+use ocd::Command;
+use std::process;
 
 fn main() {
     let config = Config::new().with_args().unwrap_or_else(|error| {
@@ -72,19 +72,18 @@ fn main() {
     });
 
     match config.subcommand {
-        Some(Command::MassRename{ .. }) => {
+        Some(Command::MassRename { .. }) => {
             if let Err(reason) = crate::ocd::mrn::run(&config) {
                 eprintln!("{}", reason);
                 process::exit(1)
             }
-        },
-        Some(Command::TimeStampSort{ .. }) => {
+        }
+        Some(Command::TimeStampSort { .. }) => {
             if let Err(reason) = crate::ocd::tss::run(&config) {
                 eprintln!("{}", reason);
                 process::exit(1)
             }
-        },
+        }
         None => {}
     }
 }
-

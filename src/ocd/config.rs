@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use crate::ocd::Command;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
+use crate::ocd::Command;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub enum Mode {
@@ -74,11 +74,7 @@ impl Config {
             .version("0.1.0")
             .author("Iñaki Garay <igarai@gmail.com>")
             .about("A swiss army knife of utilities to work with files.")
-            .args(&[
-                verbosity_arg,
-                dir_arg,
-                mode_arg,
-            ])
+            .args(&[verbosity_arg, dir_arg, mode_arg])
             .subcommand(mass_rename_subcommand)
             .subcommand(timestamp_sort_subcommand);
 
@@ -94,7 +90,9 @@ impl Config {
         match ocd_matches.subcommand() {
             ("mrn", Some(subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new(subcommand_matches);
-                let subcommand = Some(Command::MassRename{config: subcommand_config});
+                let subcommand = Some(Command::MassRename {
+                    config: subcommand_config,
+                });
                 let config = Config {
                     verbosity,
                     mode,
@@ -102,10 +100,12 @@ impl Config {
                     subcommand,
                 };
                 Ok(config)
-            },
+            }
             ("tss", Some(subcommand_matches)) => {
                 let subcommand_config = TimeStampSortConfig::new(subcommand_matches);
-                let subcommand = Some(Command::TimeStampSort{config: subcommand_config});
+                let subcommand = Some(Command::TimeStampSort {
+                    config: subcommand_config,
+                });
                 let config = Config {
                     verbosity,
                     mode,
@@ -113,7 +113,7 @@ impl Config {
                     subcommand,
                 };
                 Ok(config)
-            },
+            }
             _ => {
                 ocd_app.print_long_help().unwrap();
                 println!("\n");
