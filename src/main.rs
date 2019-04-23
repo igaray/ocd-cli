@@ -17,6 +17,7 @@
 // [x] refactor config
 // [x] rename mmv (mass move) to mrn (mass rename)
 // [x] output usage if no command given
+// [ ] use clap yaml loader
 // [ ] implement sentence case
 // [ ] implement title case
 // [ ] implement camelcase join
