@@ -353,7 +353,7 @@ fn apply_rules(
     println!("Applying rules...");
 
     for rule in rules {
-        for mut dst in buffer.values_mut() {
+        for dst in buffer.values_mut() {
             let dst2 = dst.clone();
             if let Some(filename) = dst2.file_stem() {
                 match dst2.extension() {
