@@ -18,45 +18,59 @@
 // [x] rename mmv (mass move) to mrn (mass rename)
 // [x] output usage if no command given
 // [ ] use clap yaml loader
+// [ ] copy directory, mode and verbose flags to each subcommand
+// [ ] implement file renaming
+// [ ] implement yes mode
+// [ ] implement git renaming
+// [ ] implement undo script
+// [x] implement replace
+// [x] implement substitute dash period [ ] implement substitute dash space
+// [x] implement substitute dash underscore
+// [x] implement substitute period dash
+// [x] implement substitute period space
+// [x] implement substitute period underscore
+// [x] implement substitute space dash
+// [x] implement substitute space period
+// [x] implement substitute space underscore
+// [x] implement substitute underscore dash
+// [x] implement substitute underscore period
+// [x] implement substitute underscore space
 // [ ] implement sentence case
 // [ ] implement title case
 // [ ] implement camelcase join
 // [ ] implement camelcase split
 // [ ] implement extension remove
 // [ ] implement extension add
-// [ ] implement insert
+// [x] implement insert
 // [ ] implement delete
-// [ ] implement replace
-// [ ] implement substitute dash period
-// [ ] implement substitute dash space
-// [ ] implement substitute dash underscore
-// [ ] implement substitute period dash
-// [ ] implement substitute period space
-// [ ] implement substitute period underscore
-// [ ] implement substitute space dash
-// [ ] implement substitute space period
-// [ ] implement substitute space underscore
-// [ ] implement substitute underscore dash
-// [ ] implement substitute underscore period
-// [ ] implement substitute underscore space
 // [ ] implement sanitize
-// [ ] implement yes mode
-// [ ] implement git renaming
-// [ ] implement undo script
 // [ ] implement pattern match
 // [ ] implement interactive tokenization
 // [ ] implement interactive pattern match
+// [ ] filter non-changed filenames from buffer
+//
+// BUGS
+//
+// OUTPUT
+// [ ] improve error message when running with 'i text 0'
+//     the lexer errors, when it should report that a string was expected
 // [ ] pretty output (table like bat)
 // [ ] for each print determine the verbosity level
 // [ ] progress bar
-// [ ] lexer failure tests
-// [ ] parser failure tests
-// [ ] assert_cli tests
 // [ ] better error handling in tokenizer, parser, and file listing (boxed errors)
+//     allow for printing error context
+//
+// FEATURES
 // [ ] incorporate image sorter code under a new date_sort command
 // [ ] image sorter tests
 // [ ] incorporate fix_tags code under a new id3 command
 // [ ] incorporate elephant
+//
+// CODE
+// [ ] lexer failure tests
+// [ ] parser failure tests
+// [ ] assert_cli tests
+// [ ] use the enum sort macro
 // [ ] reorder match branches to match enum order
 
 mod ocd;
