@@ -464,8 +464,17 @@ fn apply_extension_remove(filename: &str) -> String {
     String::from(filename)
 }
 
-fn apply_insert(filename: &str, _text: &str, _position: &Position) -> String {
-    String::from(filename)
+fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
+    let mut new = String::from(filename);
+    match position {
+        Position::End => {
+            new.push_str(text)
+        },
+        Position::Index{ value: index } => {
+            new.insert_str(*index, text)
+        },
+    }
+    new
 }
 
 fn apply_interactive_tokenize(filename: &str) -> String {
