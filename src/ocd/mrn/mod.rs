@@ -448,8 +448,8 @@ fn apply_sanitize(filename: &str) -> String {
     String::from(filename)
 }
 
-fn apply_replace(filename: &str, _pattern: &str, _replace: &str) -> String {
-    String::from(filename)
+fn apply_replace(filename: &str, pattern: &str, replace: &str) -> String {
+    filename.replace(pattern, replace)
 }
 
 fn apply_pattern_match(filename: &str, _pattern: &str, _replace: &str) -> String {
