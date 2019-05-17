@@ -19,8 +19,9 @@
 // [x] output usage if no command given
 // [x] use clap yaml loader
 // [x] copy directory, mode and verbose flags to each subcommand
-// [ ] implement file renaming
-// [ ] implement yes mode
+// [x] implement file renaming
+// [x] implement yes mode
+// [x] implement silent mode
 // [ ] implement git renaming
 // [ ] implement undo script
 // [x] implement replace

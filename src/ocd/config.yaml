@@ -9,7 +9,10 @@ subcommands:
                         - verbosity:
                                 multiple: true
                                 short: v
-                                help: "Sets the verbosity level. Absent is silent, one flag is low, two medium, three high, four or more debug."
+                                help: "Sets the verbosity level. Default is low, one flag medium, two high, three or more debug."
+                        - silent:
+                                long: silent
+                                help: "Silences all output."
                         - dir:
                                 takes_value: true
                                 default_value: "./"
@@ -38,7 +41,6 @@ subcommands:
                                 long: undo
                                 help: Create undo script.
                         - yes:
-                                short: y
                                 long: yes
                                 help: "Do not ask for confirmation. Useful for non-interactive batch scripts."
                         - glob:

@@ -67,7 +67,7 @@ pub struct MassRenameConfig {
 impl MassRenameConfig {
     pub fn new() -> MassRenameConfig {
         MassRenameConfig {
-            verbosity: Verbosity::Silent,
+            verbosity: Verbosity::Low,
             mode: Mode::Files,
             dir: PathBuf::new(),
             dryrun: true,
@@ -82,7 +82,7 @@ impl MassRenameConfig {
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
         MassRenameConfig {
-            verbosity: verbosity_value(matches.occurrences_of("verbosity")),
+            verbosity: verbosity_value(matches),
             mode: mode_value(matches.value_of("mode").unwrap()),
             dir: directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
@@ -96,12 +96,14 @@ impl MassRenameConfig {
     }
 }
 
-fn verbosity_value(level: u64) -> Verbosity {
-    match level {
-        0 => Verbosity::Silent,
-        1 => Verbosity::Low,
-        2 => Verbosity::Medium,
-        3 => Verbosity::High,
+fn verbosity_value(matches: &clap::ArgMatches) -> Verbosity {
+    let level = matches.occurrences_of("verbosity");
+    let silent = matches.is_present("silent");
+    match (silent, level) {
+        (true, _) => Verbosity::Silent,
+        (false, 0) => Verbosity::Low,
+        (false, 1) => Verbosity::Medium,
+        (false, 2) => Verbosity::High,
         _ => Verbosity::Debug,
     }
 }
@@ -140,14 +142,14 @@ pub fn run(config: &MassRenameConfig) -> Result<(), &str> {
     let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
     let files = entries(&config)?;
 
-    println!("Config:\n{:#?}", &config);
-    println!("Tokens:\n{:#?}", &tokens);
-    println!("Rules:\n{:#?}", &rules);
-    println!("Files:\n{:#?}", &files);
+    if let Verbosity::Debug = config.verbosity {
+        println!("{:#?}", &config);
+        println!("Tokens:\n{:#?}", &tokens);
+        println!("Rules:\n{:#?}", &rules);
+        println!("Files:\n{:#?}", &files);
+    }
 
     let buffer = apply_rules(&config, &rules, &files)?;
-    print_buffer(&buffer);
-
     if config.yes || user_confirm() {
         execute_rules(&config, &buffer)
     } else {
@@ -291,7 +293,6 @@ fn apply_rules(
     let mut buffer = new_buffer(files);
 
     println!("Applying rules...");
-
     for rule in rules {
         for dst in buffer.values_mut() {
             let dst2 = dst.clone();
@@ -320,8 +321,10 @@ fn apply_rules(
             }
         }
     }
+
     println!("Result:");
     print_buffer(&buffer);
+
     Ok(buffer)
 }
 
@@ -430,29 +433,21 @@ fn execute_rules(
     buffer: &HashMap<PathBuf, PathBuf>,
 ) -> Result<(), &'static str> {
     for (src, dst) in buffer {
-        println!("Moving '{:?}' to '{:?}'", src, dst);
-        if !config.dryrun {
-            match fs::rename(src, dst) {
-                Ok(_) => {
-                    // if config.undo {
-                    //     if !args.is_present("silent") {
-                    //         println!("Saving undo information.");
-                    //     }
-                    // }
-                }
-                Err(reason) => {
-                    // if !args.is_present("silent") {
-                    //     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
-                    // }
-                    eprintln!("Error moving file: {:?}", reason);
-                    return Err("Error moving file.");
-                }
-            }
-            // match ::ocd::move_file(config, src, dst) {
-            //     Ok(()) => {}
-            //     Err(_) => return Err("Error moving file.")
-            // }
+      println!("Moving\n    {:?}\nto\n    {:?}", src, dst);
+      if !config.dryrun {
+        // if config.undo {
+        //   println!("Creating undo script.");
+        //   panic!("Not implemented yet!");
+        // }
+        match fs::rename(src, dst) {
+          Ok(_) => {
+          }
+          Err(reason) => {
+            eprintln!("Error moving file: {:?}", reason);
+            return Err("Error moving file.")
+          }
         }
+      }
     }
     Ok(())
 }

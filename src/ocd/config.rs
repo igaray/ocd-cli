@@ -2,14 +2,14 @@ use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 use crate::ocd::Command;
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Mode {
     All,
     Directories,
     Files,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Verbosity {
     Silent,
     Low,

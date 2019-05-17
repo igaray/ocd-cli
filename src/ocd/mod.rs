@@ -2,8 +2,12 @@ pub mod config;
 pub mod mrn;
 pub mod tss;
 
+// use crate::ocd::config::Verbosity;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
+// use std::fs;
+// use std::io;
+// use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub enum Command {
@@ -42,34 +46,30 @@ pub enum Command {
 //     }
 // }
 
-// pub fn move_file(config: &Config, from: &Path, dest: &Path) -> io::Result<()> {
-//     //     if verbose print before and after
-//     //     if undo and successfull add to undo file
+// pub fn move_file_to_directory(
+//     from: &Path,
+//     dest: &Path,
+//     _verbosity: Verbosity,
+//     dryrun: bool,
+//     undo: bool,
+// ) -> io::Result<()> {
 //     let mut to = PathBuf::new();
 //     to.push(dest);
 //     to.push(from.file_name().unwrap());
-//     if let Verbosity::Debug = config.verbosity {
-//         println!("Moving '{:?}' to '{:?}'", from, to)
-//     }
-//     // if !args.is_present("dry-run") {
-//         match fs::rename(from, to) {
-//             Ok(_) => {
-//                 // if config.undo {
-//                 //     if !args.is_present("silent") {
-//                 //         println!("Saving undo information.");
-//                 //     }
-//                 // }
-//                 Ok(())
-//             },
-//             Err(reason) => {
-//                 // if !args.is_present("silent") {
-//                 //     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
-//                 // }
-//                 Err(reason)
-//             },
+//     println!("Moving \n    {:?} \nto\n    {:?}", from, to);
+//     if dryrun {
+//         Ok(())
+//     } else {
+//         if undo {
+//             println!("Saving undo information.");
+//             panic!("Undo not implemented yet!");
 //         }
-//     // }
-//     // else {
-//     //     Ok(())
-//     // }
+//         match fs::rename(from, to) {
+//             Ok(_) => Ok(()),
+//             Err(reason) => {
+//                 println!("Error: file {:?} could not be renamed: {:?}", from, reason);
+//                 Err(reason)
+//             }
+//         }
+//     }
 // }
