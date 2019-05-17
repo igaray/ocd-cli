@@ -407,12 +407,8 @@ fn apply_extension_remove(filename: &str) -> String {
 fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     let mut new = String::from(filename);
     match position {
-        Position::End => {
-            new.push_str(text)
-        },
-        Position::Index{ value: index } => {
-            new.insert_str(*index, text)
-        },
+        Position::End => new.push_str(text),
+        Position::Index { value: index } => new.insert_str(*index, text),
     }
     new
 }
@@ -429,7 +425,10 @@ fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
     String::from(filename)
 }
 
-fn execute_rules(config: &MassRenameConfig, buffer: &HashMap<PathBuf, PathBuf>) -> Result<(), &'static str> {
+fn execute_rules(
+    config: &MassRenameConfig,
+    buffer: &HashMap<PathBuf, PathBuf>,
+) -> Result<(), &'static str> {
     for (src, dst) in buffer {
         println!("Moving '{:?}' to '{:?}'", src, dst);
         if !config.dryrun {

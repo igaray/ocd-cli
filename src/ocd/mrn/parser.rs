@@ -377,9 +377,9 @@ fn parse_replace<'a, 'b>(
 
 #[cfg(test)]
 mod test {
-    use crate::ocd::mrn::MassRenameConfig;
     use crate::ocd::mrn::lexer::tokenize;
     use crate::ocd::mrn::parser::parse;
+    use crate::ocd::mrn::MassRenameConfig;
     use crate::ocd::mrn::{Position, Rule};
 
     #[test]

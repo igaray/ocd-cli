@@ -96,7 +96,11 @@ impl Tokenizer {
         }
     }
 
-    pub fn run(&mut self, config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, &'static str> {
+    pub fn run(
+        &mut self,
+        config: &MassRenameConfig,
+        input: &str,
+    ) -> Result<Vec<Token>, &'static str> {
         let mut tokens = Vec::new();
         for c in input.chars() {
             match self.state {
@@ -860,7 +864,10 @@ mod test {
     #[test]
     fn empty_test() {
         let empty: [Token; 0] = [];
-        assert_eq!(&empty, tokenize(&MassRenameConfig::new(), "").unwrap().as_slice());
+        assert_eq!(
+            &empty,
+            tokenize(&MassRenameConfig::new(), "").unwrap().as_slice()
+        );
     }
 
     #[test]
@@ -883,7 +890,9 @@ mod test {
     fn multiple_spaces_test() {
         assert_eq!(
             &[Token::Space],
-            tokenize(&MassRenameConfig::new(), "   ").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "   ")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -916,7 +925,9 @@ mod test {
     fn large_number_test() {
         assert_eq!(
             &[Token::Number { value: 105 }],
-            tokenize(&MassRenameConfig::new(), "105").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "105")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -924,7 +935,9 @@ mod test {
     fn end_test() {
         assert_eq!(
             &[Token::End],
-            tokenize(&MassRenameConfig::new(), "end").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "end")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -972,7 +985,9 @@ mod test {
     fn camel_case_join_test() {
         assert_eq!(
             &[Token::CamelCaseJoin],
-            tokenize(&MassRenameConfig::new(), "ccj").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ccj")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -980,7 +995,9 @@ mod test {
     fn camel_case_split_test() {
         assert_eq!(
             &[Token::CamelCaseSplit],
-            tokenize(&MassRenameConfig::new(), "ccs").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ccs")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -1178,7 +1195,9 @@ mod test {
                 Token::Comma,
                 Token::SentenceCase,
             ],
-            tokenize(&MassRenameConfig::new(), "lc,uc,tc,sc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "lc,uc,tc,sc")
+                .unwrap()
+                .as_slice()
         );
     }
 
@@ -1210,9 +1229,12 @@ mod test {
                 Token::Comma,
                 Token::ReplaceUnderSpace,
             ],
-            tokenize(&MassRenameConfig::new(), "dp,ds,du,pd,ps,pu,sd,sp,su,ud,up,us")
-                .unwrap()
-                .as_slice()
+            tokenize(
+                &MassRenameConfig::new(),
+                "dp,ds,du,pd,ps,pu,sd,sp,su,ud,up,us"
+            )
+            .unwrap()
+            .as_slice()
         );
     }
 

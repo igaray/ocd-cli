@@ -17,8 +17,8 @@
 // [x] refactor config
 // [x] rename mmv (mass move) to mrn (mass rename)
 // [x] output usage if no command given
-// [ ] use clap yaml loader
-// [ ] copy directory, mode and verbose flags to each subcommand
+// [x] use clap yaml loader
+// [x] copy directory, mode and verbose flags to each subcommand
 // [ ] implement file renaming
 // [ ] implement yes mode
 // [ ] implement git renaming

@@ -44,14 +44,13 @@ impl Config {
         // get_matches method consumes the struct.
         let ocd_matches = app.clone().get_matches();
 
-
         match ocd_matches.subcommand() {
             ("mrn", Some(subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new().with_args(subcommand_matches);
                 let subcommand = Some(Command::MassRename {
                     config: subcommand_config,
                 });
-                let config = Config{ subcommand };
+                let config = Config { subcommand };
                 Ok(config)
             }
             ("tss", Some(subcommand_matches)) => {
@@ -59,12 +58,10 @@ impl Config {
                 let subcommand = Some(Command::TimeStampSort {
                     config: subcommand_config,
                 });
-                let config = Config{ subcommand };
+                let config = Config { subcommand };
                 Ok(config)
             }
-            (_, Some(_)) => {
-                Err("Unknown command supplied.")
-            }
+            (_, Some(_)) => Err("Unknown command supplied."),
             _ => {
                 app.print_long_help().unwrap();
                 println!("\n");
@@ -73,4 +70,3 @@ impl Config {
         }
     }
 }
-
