@@ -75,6 +75,9 @@
 
 mod ocd;
 
+#[macro_use]
+extern crate clap;
+
 use crate::ocd::config::Config;
 use crate::ocd::Command;
 use std::process;
@@ -86,14 +89,14 @@ fn main() {
     });
 
     match config.subcommand {
-        Some(Command::MassRename { .. }) => {
-            if let Err(reason) = crate::ocd::mrn::run(&config) {
+        Some(Command::MassRename { ref config }) => {
+            if let Err(reason) = crate::ocd::mrn::run(config) {
                 eprintln!("{}", reason);
                 process::exit(1)
             }
         }
-        Some(Command::TimeStampSort { .. }) => {
-            if let Err(reason) = crate::ocd::tss::run(&config) {
+        Some(Command::TimeStampSort { ref config }) => {
+            if let Err(reason) = crate::ocd::tss::run(config) {
                 eprintln!("{}", reason);
                 process::exit(1)
             }

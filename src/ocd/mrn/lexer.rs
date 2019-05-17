@@ -1,4 +1,4 @@
-use crate::ocd::config::{Config, Verbosity};
+use crate::ocd::mrn::{MassRenameConfig, Verbosity};
 
 #[derive(Debug, PartialEq)]
 
@@ -96,7 +96,7 @@ impl Tokenizer {
         }
     }
 
-    pub fn run(&mut self, config: &Config, input: &str) -> Result<Vec<Token>, &'static str> {
+    pub fn run(&mut self, config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, &'static str> {
         let mut tokens = Vec::new();
         for c in input.chars() {
             match self.state {
@@ -252,7 +252,7 @@ impl Tokenizer {
         Ok(tokens)
     }
 
-    fn state_init(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_init(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 self.state = TokenizerState::Comma;
@@ -308,7 +308,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_comma(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_comma(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 tokens.push(Token::Comma);
@@ -377,7 +377,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_space(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_space(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ' ' => {}
             ',' => {
@@ -444,7 +444,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_string(&mut self, _config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_string(&mut self, _config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             '"' => {
                 tokens.push(Token::String {
@@ -459,7 +459,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_number(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_number(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => match self.number.parse::<usize>() {
                 Ok(value) => {
@@ -498,7 +498,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_c(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_c(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'c' => {
                 self.state = TokenizerState::CC;
@@ -512,7 +512,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_cc(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_cc(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'j' => {
                 self.state = TokenizerState::CCJ;
@@ -529,15 +529,15 @@ impl Tokenizer {
         }
     }
 
-    fn state_ccj(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ccj(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::CamelCaseJoin, "*CCJ*")
     }
 
-    fn state_ccs(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ccs(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::CamelCaseSplit, "*CCS*")
     }
 
-    fn state_d(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_d(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 tokens.push(Token::Delete);
@@ -565,19 +565,19 @@ impl Tokenizer {
         }
     }
 
-    fn state_dp(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_dp(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceDashPeriod, "*DP*")
     }
 
-    fn state_ds(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ds(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceDashSpace, "*DS*")
     }
 
-    fn state_du(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_du(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceDashUnder, "*DU*")
     }
 
-    fn state_e(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_e(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'a' => {
                 self.state = TokenizerState::EA;
@@ -597,15 +597,15 @@ impl Tokenizer {
         }
     }
 
-    fn state_ea(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ea(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ExtensionAdd, "*EA*")
     }
 
-    fn state_er(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_er(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ExtensionRemove, "*ER*")
     }
 
-    fn state_en(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_en(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'd' => {
                 self.state = TokenizerState::END;
@@ -619,11 +619,11 @@ impl Tokenizer {
         }
     }
 
-    fn state_end(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_end(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::End, "*END*")
     }
 
-    fn state_i(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_i(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 tokens.push(Token::Insert);
@@ -648,15 +648,15 @@ impl Tokenizer {
         }
     }
 
-    fn state_ip(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ip(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::InteractivePatternMatch, "*IP*")
     }
 
-    fn state_it(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_it(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::InteractiveTokenize, "*IT*")
     }
 
-    fn state_l(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_l(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'c' => {
                 self.state = TokenizerState::LC;
@@ -670,11 +670,11 @@ impl Tokenizer {
         }
     }
 
-    fn state_lc(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_lc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::LowerCase, "*LC*")
     }
 
-    fn state_p(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_p(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 tokens.push(Token::PatternMatch);
@@ -702,23 +702,23 @@ impl Tokenizer {
         }
     }
 
-    fn state_pd(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_pd(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplacePeriodDash, "*PD*")
     }
 
-    fn state_ps(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ps(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplacePeriodSpace, "*PS*")
     }
 
-    fn state_pu(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_pu(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplacePeriodUnder, "*PU*")
     }
 
-    fn state_r(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_r(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::Replace, "*R*")
     }
 
-    fn state_s(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_s(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         match c {
             ',' => {
                 tokens.push(Token::Sanitize);
@@ -749,23 +749,23 @@ impl Tokenizer {
         }
     }
 
-    fn state_sc(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_sc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::SentenceCase, "*SC*")
     }
 
-    fn state_sp(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_sp(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceSpacePeriod, "*SP*")
     }
 
-    fn state_sd(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_sd(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceSpaceDash, "*SD*")
     }
 
-    fn state_su(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_su(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceSpaceUnder, "*SU*")
     }
 
-    fn state_t(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_t(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'c' => {
                 self.state = TokenizerState::TC;
@@ -779,11 +779,11 @@ impl Tokenizer {
         }
     }
 
-    fn state_tc(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_tc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::TitleCase, "*TC*")
     }
 
-    fn state_u(&mut self, config: &Config, c: char, _tokens: &mut Vec<Token>) {
+    fn state_u(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
         match c {
             'c' => {
                 self.state = TokenizerState::UC;
@@ -806,25 +806,25 @@ impl Tokenizer {
         }
     }
 
-    fn state_uc(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_uc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::UpperCase, "*UC*")
     }
 
-    fn state_ud(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_ud(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceUnderDash, "*UD*")
     }
 
-    fn state_us(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_us(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceUnderSpace, "*US*")
     }
 
-    fn state_up(&mut self, config: &Config, c: char, tokens: &mut Vec<Token>) {
+    fn state_up(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
         self.emit_token(config, c, tokens, Token::ReplaceUnderPeriod, "*UP*")
     }
 
     fn emit_token(
         &mut self,
-        config: &Config,
+        config: &MassRenameConfig,
         c: char,
         tokens: &mut Vec<Token>,
         token: Token,
@@ -849,7 +849,7 @@ impl Tokenizer {
     }
 }
 
-pub fn tokenize(config: &Config, input: &str) -> Result<Vec<Token>, &'static str> {
+pub fn tokenize(config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, &'static str> {
     Tokenizer::new().run(config, input)
 }
 
@@ -860,14 +860,14 @@ mod test {
     #[test]
     fn empty_test() {
         let empty: [Token; 0] = [];
-        assert_eq!(&empty, tokenize(&Config::new(), "").unwrap().as_slice());
+        assert_eq!(&empty, tokenize(&MassRenameConfig::new(), "").unwrap().as_slice());
     }
 
     #[test]
     fn comma_test() {
         assert_eq!(
             &[Token::Comma],
-            tokenize(&Config::new(), ",").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), ",").unwrap().as_slice()
         );
     }
 
@@ -875,7 +875,7 @@ mod test {
     fn space_test() {
         assert_eq!(
             &[Token::Space],
-            tokenize(&Config::new(), " ").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), " ").unwrap().as_slice()
         );
     }
 
@@ -883,7 +883,7 @@ mod test {
     fn multiple_spaces_test() {
         assert_eq!(
             &[Token::Space],
-            tokenize(&Config::new(), "   ").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "   ").unwrap().as_slice()
         );
     }
 
@@ -893,7 +893,7 @@ mod test {
             &[Token::String {
                 value: String::from("look, a string")
             }],
-            tokenize(&Config::new(), "\"look, a string\"")
+            tokenize(&MassRenameConfig::new(), "\"look, a string\"")
                 .unwrap()
                 .as_slice()
         );
@@ -902,21 +902,21 @@ mod test {
     fn zero_test() {
         assert_eq!(
             &[Token::Number { value: 0 }],
-            tokenize(&Config::new(), "0").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "0").unwrap().as_slice()
         );
     }
     #[test]
     fn number_test() {
         assert_eq!(
             &[Token::Number { value: 10 }],
-            tokenize(&Config::new(), "10").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "10").unwrap().as_slice()
         );
     }
     #[test]
     fn large_number_test() {
         assert_eq!(
             &[Token::Number { value: 105 }],
-            tokenize(&Config::new(), "105").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "105").unwrap().as_slice()
         );
     }
 
@@ -924,7 +924,7 @@ mod test {
     fn end_test() {
         assert_eq!(
             &[Token::End],
-            tokenize(&Config::new(), "end").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "end").unwrap().as_slice()
         );
     }
 
@@ -932,7 +932,7 @@ mod test {
     fn pattern_match_test() {
         assert_eq!(
             &[Token::PatternMatch],
-            tokenize(&Config::new(), "p").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "p").unwrap().as_slice()
         );
     }
 
@@ -940,7 +940,7 @@ mod test {
     fn lower_case_test() {
         assert_eq!(
             &[Token::LowerCase],
-            tokenize(&Config::new(), "lc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "lc").unwrap().as_slice()
         );
     }
 
@@ -948,7 +948,7 @@ mod test {
     fn upper_case_test() {
         assert_eq!(
             &[Token::UpperCase],
-            tokenize(&Config::new(), "uc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "uc").unwrap().as_slice()
         );
     }
 
@@ -956,7 +956,7 @@ mod test {
     fn title_case_test() {
         assert_eq!(
             &[Token::TitleCase],
-            tokenize(&Config::new(), "tc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "tc").unwrap().as_slice()
         );
     }
 
@@ -964,7 +964,7 @@ mod test {
     fn sentence_case_test() {
         assert_eq!(
             &[Token::SentenceCase],
-            tokenize(&Config::new(), "sc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "sc").unwrap().as_slice()
         );
     }
 
@@ -972,7 +972,7 @@ mod test {
     fn camel_case_join_test() {
         assert_eq!(
             &[Token::CamelCaseJoin],
-            tokenize(&Config::new(), "ccj").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ccj").unwrap().as_slice()
         );
     }
 
@@ -980,7 +980,7 @@ mod test {
     fn camel_case_split_test() {
         assert_eq!(
             &[Token::CamelCaseSplit],
-            tokenize(&Config::new(), "ccs").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ccs").unwrap().as_slice()
         );
     }
 
@@ -988,7 +988,7 @@ mod test {
     fn extension_add_test() {
         assert_eq!(
             &[Token::ExtensionAdd],
-            tokenize(&Config::new(), "ea").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ea").unwrap().as_slice()
         );
     }
 
@@ -996,7 +996,7 @@ mod test {
     fn extension_remove_test() {
         assert_eq!(
             &[Token::ExtensionRemove],
-            tokenize(&Config::new(), "er").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "er").unwrap().as_slice()
         );
     }
 
@@ -1004,7 +1004,7 @@ mod test {
     fn insert_test() {
         assert_eq!(
             &[Token::Insert],
-            tokenize(&Config::new(), "i").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "i").unwrap().as_slice()
         );
     }
 
@@ -1012,7 +1012,7 @@ mod test {
     fn interactive_tokenize_test() {
         assert_eq!(
             &[Token::InteractiveTokenize],
-            tokenize(&Config::new(), "it").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "it").unwrap().as_slice()
         );
     }
 
@@ -1020,7 +1020,7 @@ mod test {
     fn interactive_pattern_match_test() {
         assert_eq!(
             &[Token::InteractivePatternMatch],
-            tokenize(&Config::new(), "ip").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ip").unwrap().as_slice()
         );
     }
 
@@ -1028,7 +1028,7 @@ mod test {
     fn delete_test() {
         assert_eq!(
             &[Token::Delete],
-            tokenize(&Config::new(), "d").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "d").unwrap().as_slice()
         );
     }
 
@@ -1036,7 +1036,7 @@ mod test {
     fn replace_test() {
         assert_eq!(
             &[Token::Replace],
-            tokenize(&Config::new(), "r").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "r").unwrap().as_slice()
         );
     }
 
@@ -1044,7 +1044,7 @@ mod test {
     fn sanitize_test() {
         assert_eq!(
             &[Token::Sanitize],
-            tokenize(&Config::new(), "s").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "s").unwrap().as_slice()
         );
     }
 
@@ -1052,7 +1052,7 @@ mod test {
     fn replace_space_dash_test() {
         assert_eq!(
             &[Token::ReplaceSpaceDash],
-            tokenize(&Config::new(), "sd").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "sd").unwrap().as_slice()
         );
     }
 
@@ -1060,7 +1060,7 @@ mod test {
     fn replace_space_period_test() {
         assert_eq!(
             &[Token::ReplaceSpacePeriod],
-            tokenize(&Config::new(), "sp").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "sp").unwrap().as_slice()
         );
     }
 
@@ -1068,7 +1068,7 @@ mod test {
     fn replace_space_underscore_test() {
         assert_eq!(
             &[Token::ReplaceSpaceUnder],
-            tokenize(&Config::new(), "su").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "su").unwrap().as_slice()
         );
     }
 
@@ -1076,7 +1076,7 @@ mod test {
     fn replace_dash_space_test() {
         assert_eq!(
             &[Token::ReplaceDashSpace],
-            tokenize(&Config::new(), "ds").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ds").unwrap().as_slice()
         );
     }
 
@@ -1084,7 +1084,7 @@ mod test {
     fn replace_dash_period_test() {
         assert_eq!(
             &[Token::ReplaceDashPeriod],
-            tokenize(&Config::new(), "dp").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "dp").unwrap().as_slice()
         );
     }
 
@@ -1092,7 +1092,7 @@ mod test {
     fn replace_dash_under_test() {
         assert_eq!(
             &[Token::ReplaceDashUnder],
-            tokenize(&Config::new(), "du").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "du").unwrap().as_slice()
         );
     }
 
@@ -1100,7 +1100,7 @@ mod test {
     fn replace_period_space_test() {
         assert_eq!(
             &[Token::ReplacePeriodSpace],
-            tokenize(&Config::new(), "ps").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ps").unwrap().as_slice()
         );
     }
 
@@ -1108,7 +1108,7 @@ mod test {
     fn replace_period_dash_test() {
         assert_eq!(
             &[Token::ReplacePeriodDash],
-            tokenize(&Config::new(), "pd").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "pd").unwrap().as_slice()
         );
     }
 
@@ -1116,7 +1116,7 @@ mod test {
     fn replace_period_under_test() {
         assert_eq!(
             &[Token::ReplacePeriodUnder],
-            tokenize(&Config::new(), "pu").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "pu").unwrap().as_slice()
         );
     }
 
@@ -1124,7 +1124,7 @@ mod test {
     fn replace_under_space_test() {
         assert_eq!(
             &[Token::ReplaceUnderSpace],
-            tokenize(&Config::new(), "us").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "us").unwrap().as_slice()
         );
     }
 
@@ -1132,7 +1132,7 @@ mod test {
     fn replace_under_dash_test() {
         assert_eq!(
             &[Token::ReplaceUnderDash],
-            tokenize(&Config::new(), "ud").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "ud").unwrap().as_slice()
         );
     }
 
@@ -1140,7 +1140,7 @@ mod test {
     fn replace_underscore_period_test() {
         assert_eq!(
             &[Token::ReplaceUnderPeriod],
-            tokenize(&Config::new(), "up").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "up").unwrap().as_slice()
         );
     }
 
@@ -1160,7 +1160,7 @@ mod test {
                 Token::Comma,
                 Token::LowerCase,
             ],
-            tokenize(&Config::new(), "p \"{#} - {X}\" \"{1}. {2}\",lc")
+            tokenize(&MassRenameConfig::new(), "p \"{#} - {X}\" \"{1}. {2}\",lc")
                 .unwrap()
                 .as_slice()
         );
@@ -1178,7 +1178,7 @@ mod test {
                 Token::Comma,
                 Token::SentenceCase,
             ],
-            tokenize(&Config::new(), "lc,uc,tc,sc").unwrap().as_slice()
+            tokenize(&MassRenameConfig::new(), "lc,uc,tc,sc").unwrap().as_slice()
         );
     }
 
@@ -1210,7 +1210,7 @@ mod test {
                 Token::Comma,
                 Token::ReplaceUnderSpace,
             ],
-            tokenize(&Config::new(), "dp,ds,du,pd,ps,pu,sd,sp,su,ud,up,us")
+            tokenize(&MassRenameConfig::new(), "dp,ds,du,pd,ps,pu,sd,sp,su,ud,up,us")
                 .unwrap()
                 .as_slice()
         );
@@ -1228,7 +1228,7 @@ mod test {
                     value: String::from("txt")
                 },
             ],
-            tokenize(&Config::new(), "er,ea \"txt\"")
+            tokenize(&MassRenameConfig::new(), "er,ea \"txt\"")
                 .unwrap()
                 .as_slice()
         );
@@ -1254,7 +1254,7 @@ mod test {
                 Token::Space,
                 Token::Number { value: 0 }
             ],
-            tokenize(&Config::new(), "i \"text\" end,i \"text\" 0")
+            tokenize(&MassRenameConfig::new(), "i \"text\" end,i \"text\" 0")
                 .unwrap()
                 .as_slice()
         );

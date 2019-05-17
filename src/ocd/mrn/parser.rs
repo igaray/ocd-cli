@@ -2,7 +2,7 @@ use crate::ocd::mrn::lexer::Token;
 use crate::ocd::mrn::{Position, Rule};
 
 pub fn parse(
-    _config: &crate::ocd::config::Config,
+    _config: &crate::ocd::mrn::MassRenameConfig,
     tokens: &[crate::ocd::mrn::lexer::Token],
 ) -> Result<Vec<Rule>, &'static str> {
     let mut rules = Vec::new();
@@ -377,14 +377,14 @@ fn parse_replace<'a, 'b>(
 
 #[cfg(test)]
 mod test {
-    use crate::ocd::config::Config;
+    use crate::ocd::mrn::MassRenameConfig;
     use crate::ocd::mrn::lexer::tokenize;
     use crate::ocd::mrn::parser::parse;
     use crate::ocd::mrn::{Position, Rule};
 
     #[test]
     fn empty_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         let empty: [Rule; 0] = [];
         assert_eq!(
             &empty,
@@ -396,7 +396,7 @@ mod test {
 
     #[test]
     fn lower_case_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::LowerCase],
             parse(&config, &tokenize(&config, &"lc").unwrap())
@@ -407,7 +407,7 @@ mod test {
 
     #[test]
     fn upper_case_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::UpperCase],
             parse(&config, &tokenize(&config, &"uc").unwrap())
@@ -418,7 +418,7 @@ mod test {
 
     #[test]
     fn title_case_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::TitleCase],
             parse(&config, &tokenize(&config, &"tc").unwrap())
@@ -429,7 +429,7 @@ mod test {
 
     #[test]
     fn sentence_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::SentenceCase],
             parse(&config, &tokenize(&config, &"sc").unwrap())
@@ -440,7 +440,7 @@ mod test {
 
     #[test]
     fn camel_case_join_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::CamelCaseJoin],
             parse(&config, &tokenize(&config, &"ccj").unwrap())
@@ -451,7 +451,7 @@ mod test {
 
     #[test]
     fn camel_case_split_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::CamelCaseSplit],
             parse(&config, &tokenize(&config, &"ccs").unwrap())
@@ -462,7 +462,7 @@ mod test {
 
     #[test]
     fn sanitize_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Sanitize],
             parse(&config, &tokenize(&config, &"s").unwrap())
@@ -473,7 +473,7 @@ mod test {
 
     #[test]
     fn replace_space_dash_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceSpaceDash],
             parse(&config, &tokenize(&config, &"sd").unwrap())
@@ -484,7 +484,7 @@ mod test {
 
     #[test]
     fn replace_space_period_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceSpacePeriod],
             parse(&config, &tokenize(&config, &"sp").unwrap())
@@ -495,7 +495,7 @@ mod test {
 
     #[test]
     fn replace_space_under_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceSpaceUnder],
             parse(&config, &tokenize(&config, &"su").unwrap())
@@ -506,7 +506,7 @@ mod test {
 
     #[test]
     fn replace_dash_period_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceDashPeriod],
             parse(&config, &tokenize(&config, &"dp").unwrap())
@@ -517,7 +517,7 @@ mod test {
 
     #[test]
     fn replace_dash_space_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceDashSpace],
             parse(&config, &tokenize(&config, &"ds").unwrap())
@@ -528,7 +528,7 @@ mod test {
 
     #[test]
     fn replace_dash_under_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceDashUnder],
             parse(&config, &tokenize(&config, &"du").unwrap())
@@ -539,7 +539,7 @@ mod test {
 
     #[test]
     fn replace_period_dash_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplacePeriodDash],
             parse(&config, &tokenize(&config, &"pd").unwrap())
@@ -550,7 +550,7 @@ mod test {
 
     #[test]
     fn replace_period_space_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplacePeriodSpace],
             parse(&config, &tokenize(&config, &"ps").unwrap())
@@ -561,7 +561,7 @@ mod test {
 
     #[test]
     fn replace_period_under_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplacePeriodUnder],
             parse(&config, &tokenize(&config, &"pu").unwrap())
@@ -572,7 +572,7 @@ mod test {
 
     #[test]
     fn replace_under_dash_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceUnderDash],
             parse(&config, &tokenize(&config, &"ud").unwrap())
@@ -583,7 +583,7 @@ mod test {
 
     #[test]
     fn replace_under_period_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceUnderPeriod],
             parse(&config, &tokenize(&config, &"up").unwrap())
@@ -594,7 +594,7 @@ mod test {
 
     #[test]
     fn replace_under_space_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ReplaceUnderSpace],
             parse(&config, &tokenize(&config, &"us").unwrap())
@@ -605,7 +605,7 @@ mod test {
 
     #[test]
     fn interactive_tokenize_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::InteractiveTokenize],
             parse(&config, &tokenize(&config, &"it").unwrap())
@@ -616,7 +616,7 @@ mod test {
 
     #[test]
     fn interactive_pattern_match_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::InteractivePatternMatch],
             parse(&config, &tokenize(&config, &"ip").unwrap())
@@ -627,7 +627,7 @@ mod test {
 
     #[test]
     fn pattern_match_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::PatternMatch {
                 pattern: String::from("a"),
@@ -641,7 +641,7 @@ mod test {
 
     #[test]
     fn extension_add_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ExtensionAdd {
                 extension: String::from("mp3")
@@ -654,7 +654,7 @@ mod test {
 
     #[test]
     fn extension_remove_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::ExtensionRemove],
             parse(&config, &tokenize(&config, &"er").unwrap())
@@ -665,7 +665,7 @@ mod test {
 
     #[test]
     fn insert_with_end_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Insert {
                 text: String::from("text"),
@@ -679,7 +679,7 @@ mod test {
 
     #[test]
     fn insert_with_zero_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Insert {
                 text: String::from("text"),
@@ -693,7 +693,7 @@ mod test {
 
     #[test]
     fn insert_with_position_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Insert {
                 text: String::from("text"),
@@ -707,7 +707,7 @@ mod test {
 
     #[test]
     fn delete_with_end_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Delete {
                 from: 0,
@@ -721,7 +721,7 @@ mod test {
 
     #[test]
     fn delete_with_position_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Delete {
                 from: 0,
@@ -735,7 +735,7 @@ mod test {
 
     #[test]
     fn replace_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Replace {
                 pattern: String::from("text"),
@@ -749,7 +749,7 @@ mod test {
 
     #[test]
     fn sanitize_interactive_tokenize_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[Rule::Sanitize, Rule::InteractiveTokenize,],
             parse(&config, &tokenize(&config, &"s,it").unwrap())
@@ -760,7 +760,7 @@ mod test {
 
     #[test]
     fn pattern_match_with_pattern_test() {
-        let config = Config::new();
+        let config = MassRenameConfig::new();
         assert_eq!(
             &[
                 Rule::PatternMatch {

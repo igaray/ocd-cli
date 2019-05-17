@@ -8,12 +8,10 @@ mod parser;
 
 use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
-use crate::ocd::config::Config;
-use crate::ocd::config::Mode;
-use crate::ocd::Command;
+use crate::ocd::config::{Mode, Verbosity};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -54,6 +52,9 @@ pub enum Rule {
 
 #[derive(Clone, Debug)]
 pub struct MassRenameConfig {
+    pub verbosity: Verbosity,
+    pub mode: Mode,
+    pub dir: PathBuf,
     pub dryrun: bool,
     pub git: bool,
     pub recurse: bool,
@@ -64,8 +65,26 @@ pub struct MassRenameConfig {
 }
 
 impl MassRenameConfig {
-    pub fn new(matches: &clap::ArgMatches) -> MassRenameConfig {
+    pub fn new() -> MassRenameConfig {
         MassRenameConfig {
+            verbosity: Verbosity::Silent,
+            mode: Mode::Files,
+            dir: PathBuf::new(),
+            dryrun: true,
+            git: false,
+            recurse: false,
+            undo: false,
+            yes: false,
+            glob: None,
+            rules_raw: None,
+        }
+    }
+
+    pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
+        MassRenameConfig {
+            verbosity: verbosity_value(matches.occurrences_of("verbosity")),
+            mode: mode_value(matches.value_of("mode").unwrap()),
+            dir: directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
             git: matches.is_present("git"),
             recurse: matches.is_present("recurse"),
@@ -75,6 +94,29 @@ impl MassRenameConfig {
             rules_raw: rules_value(matches),
         }
     }
+}
+
+fn verbosity_value(level: u64) -> Verbosity {
+    match level {
+        0 => Verbosity::Silent,
+        1 => Verbosity::Low,
+        2 => Verbosity::Medium,
+        3 => Verbosity::High,
+        _ => Verbosity::Debug,
+    }
+}
+
+fn mode_value(mode: &str) -> Mode {
+    match mode {
+        "a" => Mode::All,
+        "d" => Mode::Directories,
+        "f" => Mode::Files,
+        _ => Mode::Files,
+    }
+}
+
+fn directory_value(dir: &str) -> PathBuf {
+    Path::new(dir).to_path_buf()
 }
 
 fn glob_value(glob: Option<&str>) -> Option<String> {
@@ -92,125 +134,28 @@ fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
     }
 }
 
-pub fn subcommand<'a, 'b>() -> clap::App<'a, 'b> {
-    // Flags
-    let dryrun_arg = clap::Arg::with_name("dry-run")
-        .long("dry-run")
-        .help("Do not effect any changes on the filesystem.");
+pub fn run(config: &MassRenameConfig) -> Result<(), &str> {
+    let rules_raw = config.rules_raw.clone().unwrap();
+    let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
+    let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
+    let files = entries(&config)?;
 
-    let git_arg = clap::Arg::with_name("git")
-        .long("git")
-        .help("Rename files by calling `git mv`");
+    println!("Config:\n{:#?}", &config);
+    println!("Tokens:\n{:#?}", &tokens);
+    println!("Rules:\n{:#?}", &rules);
+    println!("Files:\n{:#?}", &files);
 
-    let recurse_arg = clap::Arg::with_name("recurse")
-        .short("r")
-        .long("recurse")
-        .help("Recurse directories.");
+    let buffer = apply_rules(&config, &rules, &files)?;
+    print_buffer(&buffer);
 
-    let undo_arg = clap::Arg::with_name("undo")
-        .short("u")
-        .long("undo")
-        .help("Create undo script.");
-
-    let yes_arg = clap::Arg::with_name("yes")
-        .short("y")
-        .long("yes")
-        .help("Do not ask for confirmation. Useful for non-interactive batch scripts.");
-
-    let glob_arg = clap::Arg::with_name("glob")
-        .takes_value(true)
-        .short("g")
-        .long("glob")
-        .help(
-            "Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`. \
-             If --dir is specified as well it will be concatenated with the glob pattern. \
-             If --recurse is also specified it will be ignored.",
-        );
-
-    let rules_arg = clap::Arg::with_name("rules")
-        .index(1)
-        .required(true)
-        .takes_value(true)
-        .help(
-            "\
-             The rewrite rules to apply to filenames.                   \n\
-             The value is a comma-separated list of the following rules:\n\
-             \n\
-             lc                    Lower case                           \n\
-             uc                    Upper case                           \n\
-             tc                    Title case                           \n\
-             sc                    Sentence case                        \n\
-             ccj                   Camel case join                      \n\
-             ccs                   Camel case split                     \n\
-             i <text> <position>   Insert                               \n\
-             d <from> <to>         Delete                               \n\
-             s                     Sanitize                             \n\
-             r <match> <text>      Replace                              \n\
-             sd                    Substitute space dash                \n\
-             sp                    Substitute space period              \n\
-             su                    Substitute space underscore          \n\
-             dp                    Substitute dash period               \n\
-             ds                    Substitute dash space                \n\
-             du                    Substitute dash underscore           \n\
-             pd                    Substitute period dash               \n\
-             ps                    Substitute period space              \n\
-             pu                    Substitute period under              \n\
-             ud                    Substitute underscore dash           \n\
-             up                    Substitute underscore period         \n\
-             us                    Substitute underscore space          \n\
-             ea <extension>        Extension add                        \n\
-             er                    Extension remove                     \n\
-             p <match> <pattern>   Pattern match                        \n\
-             ip                    Interactive pattern match            \n\
-             it                    Interactive tokenize                 \n\
-             ",
-        );
-
-    clap::SubCommand::with_name("mrn")
-        .about("Mass-rename files.")
-        .args(&[
-            // Flags
-            dryrun_arg,
-            git_arg,
-            undo_arg,
-            yes_arg,
-            recurse_arg,
-            // Options
-            glob_arg,
-            // Positional
-            rules_arg,
-        ])
-}
-
-pub fn run(config: &Config) -> Result<(), &str> {
-    if let Some(Command::MassRename {
-        config: ref mrn_config,
-    }) = config.subcommand
-    {
-        let rules_raw = mrn_config.rules_raw.clone().unwrap();
-        let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
-        let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
-        let files = entries(&config)?;
-
-        println!("Config:\n{:#?}", &config);
-        println!("Tokens:\n{:#?}", &tokens);
-        println!("Rules:\n{:#?}", &rules);
-        println!("Files:\n{:#?}", &files);
-
-        let buffer = apply_rules(&config, &rules, &files)?;
-        print_buffer(&buffer);
-
-        if mrn_config.yes || user_confirm() {
-            execute_rules(&config, &buffer)
-        } else {
-            Ok(())
-        }
+    if config.yes || user_confirm() {
+        execute_rules(&config, &buffer)
     } else {
         Ok(())
     }
 }
 
-fn entries(config: &Config) -> Result<Vec<PathBuf>, &'static str> {
+fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
     /*
     recurse | glob | mode
     F       | none | f
@@ -228,115 +173,110 @@ fn entries(config: &Config) -> Result<Vec<PathBuf>, &'static str> {
     */
     let mut entries_vec: Vec<PathBuf> = Vec::new();
 
-    if let Some(crate::ocd::Command::MassRename {
-        config: ref mrn_config,
-    }) = config.subcommand
-    {
-        match (mrn_config.recurse, &mrn_config.glob, &config.mode) {
-            (false, None, Mode::Files) => match fs::read_dir(&config.dir) {
-                Ok(iterator) => {
-                    for entry in iterator {
-                        match entry {
-                            Ok(file) => {
-                                if file.file_type().unwrap().is_file() {
-                                    entries_vec.push(file.path());
-                                }
-                            }
-                            Err(_err) => return Err("Error while listing files"),
-                        }
-                    }
-                }
-                Err(_err) => return Err("Error while listing files"),
-            },
-            (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
-                Ok(iterator) => {
-                    for entry in iterator {
-                        match entry {
-                            Ok(file) => {
-                                if file.file_type().unwrap().is_dir() {
-                                    entries_vec.push(file.path());
-                                }
-                            }
-                            Err(_err) => return Err("Error while listing files"),
-                        }
-                    }
-                }
-                Err(_err) => return Err("Error while listing files"),
-            },
-            (false, None, Mode::All) => match fs::read_dir(&config.dir) {
-                Ok(iterator) => {
-                    for entry in iterator {
-                        match entry {
-                            Ok(file) => {
+    match (config.recurse, &config.glob, &config.mode) {
+        (false, None, Mode::Files) => match fs::read_dir(&config.dir) {
+            Ok(iterator) => {
+                for entry in iterator {
+                    match entry {
+                        Ok(file) => {
+                            if file.file_type().unwrap().is_file() {
                                 entries_vec.push(file.path());
                             }
-                            Err(_err) => return Err("Error while listing files"),
                         }
+                        Err(_err) => return Err("Error while listing files"),
                     }
                 }
-                Err(_err) => return Err("Error while listing files"),
-            },
-            (true, None, Mode::Files) => {
-                let iter = WalkDir::new(&config.dir).into_iter();
-                for entry in iter {
+            }
+            Err(_err) => return Err("Error while listing files"),
+        },
+        (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
+            Ok(iterator) => {
+                for entry in iterator {
                     match entry {
-                        Ok(entry) => {
-                            if entry.file_type().is_file() {
-                                entries_vec.push(entry.path().to_path_buf());
+                        Ok(file) => {
+                            if file.file_type().unwrap().is_dir() {
+                                entries_vec.push(file.path());
                             }
                         }
-                        Err(_err) => return Err("Error listing files"),
+                        Err(_err) => return Err("Error while listing files"),
                     }
                 }
             }
-            (true, None, Mode::Directories) => {
-                let iter = WalkDir::new(&config.dir).into_iter();
-                for entry in iter {
+            Err(_err) => return Err("Error while listing files"),
+        },
+        (false, None, Mode::All) => match fs::read_dir(&config.dir) {
+            Ok(iterator) => {
+                for entry in iterator {
                     match entry {
-                        Ok(entry) => {
-                            if entry.file_type().is_dir() {
-                                entries_vec.push(entry.path().to_path_buf());
-                            }
+                        Ok(file) => {
+                            entries_vec.push(file.path());
                         }
-                        Err(_err) => return Err("Error listing files"),
+                        Err(_err) => return Err("Error while listing files"),
                     }
                 }
             }
-            (true, None, Mode::All) => {
-                let iter = WalkDir::new(&config.dir).into_iter();
-                for entry in iter {
-                    entries_vec.push(entry.unwrap().path().to_path_buf());
-                }
-            }
-            (_, Some(ref glob_input), Mode::Files) => {
-                let mut path = config.dir.clone();
-                path.push(glob_input);
-                let glob_path = path.as_path().to_str().unwrap();
-                for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
-                    let metadata = fs::metadata(&entry).unwrap();
-                    if metadata.is_file() {
-                        entries_vec.push(entry);
+            Err(_err) => return Err("Error while listing files"),
+        },
+        (true, None, Mode::Files) => {
+            let iter = WalkDir::new(&config.dir).into_iter();
+            for entry in iter {
+                match entry {
+                    Ok(entry) => {
+                        if entry.file_type().is_file() {
+                            entries_vec.push(entry.path().to_path_buf());
+                        }
                     }
+                    Err(_err) => return Err("Error listing files"),
                 }
             }
-            (_, Some(ref glob_input), Mode::Directories) => {
-                let mut path = config.dir.clone();
-                path.push(glob_input);
-                let glob_path = path.as_path().to_str().unwrap();
-                for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
-                    let metadata = fs::metadata(&entry).unwrap();
-                    if metadata.is_dir() {
-                        entries_vec.push(entry);
+        }
+        (true, None, Mode::Directories) => {
+            let iter = WalkDir::new(&config.dir).into_iter();
+            for entry in iter {
+                match entry {
+                    Ok(entry) => {
+                        if entry.file_type().is_dir() {
+                            entries_vec.push(entry.path().to_path_buf());
+                        }
                     }
+                    Err(_err) => return Err("Error listing files"),
                 }
             }
-            (_, Some(ref glob_input), Mode::All) => {
-                let mut path = config.dir.clone();
-                path.push(glob_input);
-                let glob_path = path.as_path().to_str().unwrap();
-                for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
+        }
+        (true, None, Mode::All) => {
+            let iter = WalkDir::new(&config.dir).into_iter();
+            for entry in iter {
+                entries_vec.push(entry.unwrap().path().to_path_buf());
+            }
+        }
+        (_, Some(ref glob_input), Mode::Files) => {
+            let mut path = config.dir.clone();
+            path.push(glob_input);
+            let glob_path = path.as_path().to_str().unwrap();
+            for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
+                let metadata = fs::metadata(&entry).unwrap();
+                if metadata.is_file() {
                     entries_vec.push(entry);
                 }
+            }
+        }
+        (_, Some(ref glob_input), Mode::Directories) => {
+            let mut path = config.dir.clone();
+            path.push(glob_input);
+            let glob_path = path.as_path().to_str().unwrap();
+            for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
+                let metadata = fs::metadata(&entry).unwrap();
+                if metadata.is_dir() {
+                    entries_vec.push(entry);
+                }
+            }
+        }
+        (_, Some(ref glob_input), Mode::All) => {
+            let mut path = config.dir.clone();
+            path.push(glob_input);
+            let glob_path = path.as_path().to_str().unwrap();
+            for entry in glob::glob(glob_path).unwrap().filter_map(Result::ok) {
+                entries_vec.push(entry);
             }
         }
     }
@@ -344,7 +284,7 @@ fn entries(config: &Config) -> Result<Vec<PathBuf>, &'static str> {
 }
 
 fn apply_rules(
-    _config: &Config,
+    _config: &MassRenameConfig,
     rules: &[Rule],
     files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, PathBuf>, &'static str> {
@@ -489,35 +429,30 @@ fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
     String::from(filename)
 }
 
-fn execute_rules(config: &Config, buffer: &HashMap<PathBuf, PathBuf>) -> Result<(), &'static str> {
-    if let Some(crate::ocd::Command::MassRename {
-        config: ref mrn_config,
-    }) = config.subcommand
-    {
-        for (src, dst) in buffer {
-            println!("Moving '{:?}' to '{:?}'", src, dst);
-            if !mrn_config.dryrun {
-                match fs::rename(src, dst) {
-                    Ok(_) => {
-                        // if config.undo {
-                        //     if !args.is_present("silent") {
-                        //         println!("Saving undo information.");
-                        //     }
-                        // }
-                    }
-                    Err(reason) => {
-                        // if !args.is_present("silent") {
-                        //     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
-                        // }
-                        eprintln!("Error moving file: {:?}", reason);
-                        return Err("Error moving file.");
-                    }
+fn execute_rules(config: &MassRenameConfig, buffer: &HashMap<PathBuf, PathBuf>) -> Result<(), &'static str> {
+    for (src, dst) in buffer {
+        println!("Moving '{:?}' to '{:?}'", src, dst);
+        if !config.dryrun {
+            match fs::rename(src, dst) {
+                Ok(_) => {
+                    // if config.undo {
+                    //     if !args.is_present("silent") {
+                    //         println!("Saving undo information.");
+                    //     }
+                    // }
                 }
-                // match ::ocd::move_file(config, src, dst) {
-                //     Ok(()) => {}
-                //     Err(_) => return Err("Error moving file.")
-                // }
+                Err(reason) => {
+                    // if !args.is_present("silent") {
+                    //     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
+                    // }
+                    eprintln!("Error moving file: {:?}", reason);
+                    return Err("Error moving file.");
+                }
             }
+            // match ::ocd::move_file(config, src, dst) {
+            //     Ok(()) => {}
+            //     Err(_) => return Err("Error moving file.")
+            // }
         }
     }
     Ok(())
