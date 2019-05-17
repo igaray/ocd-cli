@@ -9,6 +9,9 @@ use crate::ocd::tss::TimeStampSortConfig;
 pub enum Command {
     MassRename { config: MassRenameConfig },
     TimeStampSort { config: TimeStampSortConfig },
+    // FixID3 { config: FixID3Config },
+    // ElephantClient{ config: ElephantClientConfig },
+    // ElephantServer{ config: ElephantServerConfig },
 }
 
 // pub fn create_directory(args: &clap::ArgMatches, directory: &Path) -> io::Result<()> {

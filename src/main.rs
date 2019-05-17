@@ -48,6 +48,9 @@
 // [ ] implement interactive tokenization
 // [ ] implement interactive pattern match
 // [ ] filter non-changed filenames from buffer
+// [ ] analyze string usage and mutate in place where possible
+// [ ] parallelize renaming
+// [ ] profile
 //
 // BUGS
 //
