@@ -12,6 +12,7 @@ use crate::ocd::config::{Mode, Verbosity};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -439,12 +440,22 @@ fn execute_rules(
         //   println!("Creating undo script.");
         //   panic!("Not implemented yet!");
         // }
-        match fs::rename(src, dst) {
-          Ok(_) => {
-          }
-          Err(reason) => {
-            eprintln!("Error moving file: {:?}", reason);
-            return Err("Error moving file.")
+        if config.git {
+          let src = src.to_str().unwrap();
+          let dst = dst.to_str().unwrap();
+          let output = Command::new("git")
+            .args(&["mv", src, dst])
+            .output()
+            .expect("Error invoking git.");
+        }
+        else {
+          match fs::rename(src, dst) {
+            Ok(_) => {
+            }
+            Err(reason) => {
+              eprintln!("Error moving file: {:?}", reason);
+              return Err("Error moving file.")
+            }
           }
         }
       }

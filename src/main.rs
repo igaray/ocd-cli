@@ -22,7 +22,7 @@
 // [x] implement file renaming
 // [x] implement yes mode
 // [x] implement silent mode
-// [ ] implement git renaming
+// [x] implement git renaming
 // [ ] implement undo script
 // [x] implement replace
 // [x] implement substitute dash period [ ] implement substitute dash space
