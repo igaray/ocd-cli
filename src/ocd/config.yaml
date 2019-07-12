@@ -9,7 +9,9 @@ subcommands:
                         - verbosity:
                                 multiple: true
                                 short: v
-                                help: "Sets the verbosity level. Default is low, one flag medium, two high, three or more debug."
+                                help: >
+                                    Sets the verbosity level. Default is low, one flag medium, two high, three or
+                                    more debug.
                         - silent:
                                 long: silent
                                 help: "Silences all output."
@@ -18,7 +20,7 @@ subcommands:
                                 default_value: "./"
                                 short: d
                                 long: dir
-                                help: "Run inside a given directory. Defaults to current directory."
+                                help: "Run inside a given directory."
                         - mode:
                                 takes_value: true
                                 possible_values: ["a", "d", "f"]

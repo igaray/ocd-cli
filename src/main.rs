@@ -23,6 +23,10 @@
 // [x] implement yes mode
 // [x] implement silent mode
 // [x] implement git renaming
+// [ ] improve help when no command given
+//     https://stackoverflow.com/questions/54837057/how-can-i-display-help-after-calling-claps-get-matches
+//     https://stackoverflow.com/questions/49290526/is-there-any-straightforward-way-for-clap-to-display-help-when-no-command-is-pro
+//     https://docs.rs/clap/2.31.1/clap/enum.AppSettings.html#variant.ArgRequiredElseHelp
 // [ ] implement undo script
 // [x] implement replace
 // [x] implement substitute dash period [ ] implement substitute dash space
@@ -38,20 +42,34 @@
 // [x] implement substitute underscore space
 // [ ] implement sentence case
 // [ ] implement title case
+// [ ] refactor case commands
+//     separator                           | capitalization
+//     camel (lower/upper case boundary)   | lower
+//     snake (underscore)                  | upper
+//     kebab (dash)                        | title (first letter of every word capitalized)
+//                                         | literary (first letter of every word capitalized except for...)
+//                                         | sentence (first letter of first word capitalized, rest lower)
+//                                         | invert (lower to upper and upper to lower)
 // [ ] implement camelcase join
 // [ ] implement camelcase split
+// [ ] implement kebab case join
+// [ ] implement kebab case split
+// [ ] implement snake case join
+// [ ] implement snake case split
 // [ ] implement extension remove
 // [ ] implement extension add
 // [x] implement insert
 // [ ] implement delete
 // [ ] implement sanitize
 // [ ] implement pattern match
+// [ ] document pattern match
 // [ ] implement interactive tokenization
 // [ ] implement interactive pattern match
+// [ ] profile
 // [ ] filter non-changed filenames from buffer
 // [ ] analyze string usage and mutate in place where possible
 // [ ] parallelize renaming
-// [ ] profile
+// [ ] document everything with rustdoc
 //
 // BUGS
 //
