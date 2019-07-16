@@ -443,10 +443,11 @@ fn execute_rules(
         if config.git {
           let src = src.to_str().unwrap();
           let dst = dst.to_str().unwrap();
-          let output = Command::new("git")
+          let _output = Command::new("git")
             .args(&["mv", src, dst])
             .output()
             .expect("Error invoking git.");
+          // TODO: do something with output
         }
         else {
           match fs::rename(src, dst) {

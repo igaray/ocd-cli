@@ -84,7 +84,10 @@
 //
 // FEATURES
 // [ ] incorporate image sorter code under a new date_sort command
-// [ ] image sorter tests
+//   [x] add tss config to yaml
+//   [x] add tss code
+//   [ ] improve code a bit, address TODO comments
+//   [ ] add tss tests
 // [ ] incorporate fix_tags code under a new id3 command
 // [ ] incorporate elephant
 //
@@ -94,11 +97,15 @@
 // [ ] assert_cli tests
 // [ ] use the enum sort macro
 // [ ] reorder match branches to match enum order
+// [ ] reduce the amount of code
 
 mod ocd;
 
 #[macro_use]
 extern crate clap;
+extern crate lazy_static;
+extern crate regex;
+extern crate walkdir;
 
 use crate::ocd::config::Config;
 use crate::ocd::Command;

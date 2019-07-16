@@ -58,37 +58,57 @@ subcommands:
                                 required: true
                                 takes_value: true
                                 help: |
-                                     The rewrite rules to apply to filenames.                   
+                                     The rewrite rules to apply to filenames.
                                      The value is a comma-separated list of the following rules:
-                                     lc                    Lower case                           
-                                     uc                    Upper case                           
-                                     tc                    Title case                           
-                                     sc                    Sentence case                        
-                                     ccj                   Camel case join                      
-                                     ccs                   Camel case split                     
-                                     i <text> <position>   Insert                               
-                                     d <from> <to>         Delete                               
-                                     s                     Sanitize                             
-                                     r <match> <text>      Replace                              
-                                     sd                    Substitute space dash                
-                                     sp                    Substitute space period              
-                                     su                    Substitute space underscore          
-                                     dp                    Substitute dash period               
-                                     ds                    Substitute dash space                
-                                     du                    Substitute dash underscore           
-                                     pd                    Substitute period dash       
-                                     ps                    Substitute period space       
-                                     pu                    Substitute period under        
-                                     ud                    Substitute underscore dash      
-                                     up                    Substitute underscore period     
-                                     us                    Substitute underscore space       
-                                     ea <extension>        Extension add                      
-                                     er                    Extension remove                    
-                                     p <match> <pattern>   Pattern match                        
-                                     ip                    Interactive pattern match           
-                                     it                    Interactive tokenize                 
+                                     lc                    Lower case
+                                     uc                    Upper case
+                                     tc                    Title case
+                                     sc                    Sentence case
+                                     ccj                   Camel case join
+                                     ccs                   Camel case split
+                                     i <text> <position>   Insert
+                                     d <from> <to>         Delete
+                                     s                     Sanitize
+                                     r <match> <text>      Replace
+                                     sd                    Substitute space dash
+                                     sp                    Substitute space period
+                                     su                    Substitute space underscore
+                                     dp                    Substitute dash period
+                                     ds                    Substitute dash space
+                                     du                    Substitute dash underscore
+                                     pd                    Substitute period dash
+                                     ps                    Substitute period space
+                                     pu                    Substitute period under
+                                     ud                    Substitute underscore dash
+                                     up                    Substitute underscore period
+                                     us                    Substitute underscore space
+                                     ea <extension>        Extension add
+                                     er                    Extension remove
+                                     p <match> <pattern>   Pattern match
+                                     ip                    Interactive pattern match
+                                     it                    Interactive tokenize
         - tss:
                 about: "Time Stamp Sort"
+                args:
+                        - silent:
+                                long: silent
+                                help: "Silences all output."
+                        - dir:
+                                takes_value: true
+                                default_value: "./"
+                                short: d
+                                long: dir
+                                help: "Run inside a given directory."
+                        - dry-run:
+                                long: dry-run
+                                help: "Do not effect any changes on the filesystem."
+                        - undo:
+                                short: u
+                                long: undo
+                                help: Create undo script.
+                        - yes:
+                                long: yes
+                                help: "Do not ask for confirmation. Useful for non-interactive batch scripts."
         - id3:
                 about: "Fix id3 tags"
         - lphc:
