@@ -38,11 +38,8 @@ impl Config {
 
     pub fn with_args(&self) -> Result<Config, &'static str> {
         let yaml = load_yaml!("config.yaml");
-        let mut app = clap::App::from_yaml(yaml);
-        // We clone the app to get the matches because we need the app struct to
-        // print the usage in case no subcommand has been given, and the
-        // get_matches method consumes the struct.
-        let ocd_matches = app.clone().get_matches();
+        let app = clap::App::from_yaml(yaml);
+        let ocd_matches = app.get_matches();
 
         match ocd_matches.subcommand() {
             ("mrn", Some(subcommand_matches)) => {
@@ -62,11 +59,7 @@ impl Config {
                 Ok(config)
             }
             (_, Some(_)) => Err("Unknown command supplied."),
-            _ => {
-                app.print_long_help().unwrap();
-                println!("\n");
-                Err("No command supplied.")
-            }
+            _ => Err("No command supplied."),
         }
     }
 }

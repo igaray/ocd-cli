@@ -2,6 +2,8 @@ name: ocd
 version: "0.1.0"
 author: "Iñaki Garay <igarai@gmail.com>"
 about: "A swiss army knife of utilities to work with files."
+settings:
+    - ArgRequiredElseHelp
 subcommands:
         - mrn:
                 about: "Mass ReName"
@@ -109,9 +111,9 @@ subcommands:
                         - yes:
                                 long: yes
                                 help: "Do not ask for confirmation. Useful for non-interactive batch scripts."
-        - id3:
-                about: "Fix id3 tags"
-        - lphc:
-                about: "Elephant client"
-        - lphs:
-                about: "Elephant server"
+        # - id3:
+        #         about: "Fix id3 tags"
+        # - lphc:
+        #         about: "Elephant client"
+        # - lphs:
+        #         about: "Elephant server"
