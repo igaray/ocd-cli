@@ -1,8 +1,18 @@
 [package]
-name = "ocd"
+name = "ocd-cli"
 version = "0.1.0"
 authors = ["Iñaki Garay <igarai@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/igaray/ocd-cli"
+repository = "https://github.com/igaray/ocd-cli"
+documentation = "https://docs.rs/ocd-cli"
+readme = "README.md"
+keywords = ["cli","file","rename"]
+categories = ["command-line-utilities","filesystem"]
+description = """
+A CLI file management swiss army knife. 
+"""
 
 [dependencies]
 clap = {version = "2.33", features = ["yaml"]}
