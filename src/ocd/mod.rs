@@ -2,12 +2,8 @@ pub mod config;
 pub mod mrn;
 pub mod tss;
 
-// use crate::ocd::config::Verbosity;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
-// use std::fs;
-// use std::io;
-// use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub enum Command {

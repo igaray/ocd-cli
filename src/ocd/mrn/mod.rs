@@ -9,8 +9,10 @@ mod parser;
 use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
 use crate::ocd::config::{Mode, Verbosity};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -290,7 +292,7 @@ fn apply_rules(
     _config: &MassRenameConfig,
     rules: &[Rule],
     files: &[PathBuf],
-) -> Result<HashMap<PathBuf, PathBuf>, &'static str> {
+) -> Result<BTreeMap<PathBuf, PathBuf>, &'static str> {
     let mut buffer = new_buffer(files);
 
     println!("Applying rules...");
@@ -429,17 +431,35 @@ fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
     String::from(filename)
 }
 
+fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
+    println!("Creating undo script.");
+    match File::create("./undo.sh") {
+        Ok(mut output_file) => {
+            for (src, dst) in buffer {
+                match write!(output_file, "mv -i {:?} {:?}\n", dst, src) {
+                    Ok(_) => {}
+                    Err(reason) => {
+                        eprintln!("Error writing to undo file: {:?}", reason);
+                    }
+                }
+            }
+        }
+        Err(reason) => {
+            eprintln!("Error creating undo file: {:?}", reason);
+        }
+    }
+}
+
 fn execute_rules(
     config: &MassRenameConfig,
-    buffer: &HashMap<PathBuf, PathBuf>,
+    buffer: &BTreeMap<PathBuf, PathBuf>,
 ) -> Result<(), &'static str> {
     for (src, dst) in buffer {
       println!("Moving\n    {:?}\nto\n    {:?}", src, dst);
       if !config.dryrun {
-        // if config.undo {
-        //   println!("Creating undo script.");
-        //   panic!("Not implemented yet!");
-        // }
+        if config.undo {
+            create_undo_file(buffer);
+        }
         if config.git {
           let src = src.to_str().unwrap();
           let dst = dst.to_str().unwrap();
@@ -464,15 +484,15 @@ fn execute_rules(
     Ok(())
 }
 
-fn new_buffer(files: &[PathBuf]) -> HashMap<PathBuf, PathBuf> {
-    let mut buffer = HashMap::new();
+fn new_buffer(files: &[PathBuf]) -> BTreeMap<PathBuf, PathBuf> {
+    let mut buffer = BTreeMap::new();
     for file in files {
         buffer.insert(file.clone(), file.clone());
     }
     buffer
 }
 
-fn print_buffer<S: ::std::hash::BuildHasher>(buffer: &HashMap<PathBuf, PathBuf, S>) {
+fn print_buffer(buffer: &BTreeMap<PathBuf, PathBuf>) {
     for (src, dst) in buffer {
         println!("    {:?} => {:?}", src, dst)
     }
