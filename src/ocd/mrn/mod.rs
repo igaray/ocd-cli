@@ -372,12 +372,12 @@ fn apply_upper_case(filename: &str) -> String {
     filename.to_uppercase()
 }
 
-fn apply_title_case(_filename: &str) -> String {
-    unimplemented!()
+fn apply_title_case(filename: &str) -> String {
+    voca_rs::case::title_case(filename)
 }
 
 fn apply_sentence_case(filename: &str) -> String {
-    filename._capitalize(true)
+    voca_rs::case::capitalize(filename, true)
 }
 
 fn apply_camel_case_join(_filename: &str) -> String {
@@ -548,7 +548,7 @@ mod test {
             "A Title Has Multiple Words"
         );
         assert_eq!(
-            apply_title_case("A tItLe HaS mUlTiPlE wOrDs"),
+            apply_title_case("A TITLE HAS MULTIPLE WORDS"),
             "A Title Has Multiple Words"
         )
     }
