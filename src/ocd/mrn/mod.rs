@@ -429,19 +429,18 @@ fn apply_interactive_pattern_match(filename: &str) -> String {
 
 fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     let to_idx = match to {
-        &Position::End => { filename.len() }
+        &Position::End => filename.len(),
         &Position::Index { value } => {
-          if value > filename.len() {
-            filename.len()
+            if value > filename.len() {
+                filename.len()
+            } else {
+                value
             }
-          else {
-            value
-            }
-        },
+        }
     };
     let mut s = String::from(filename);
     s.replace_range(from_idx..to_idx, "");
-    return s
+    return s;
 }
 
 fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
@@ -468,31 +467,29 @@ fn execute_rules(
     buffer: &BTreeMap<PathBuf, PathBuf>,
 ) -> Result<(), &'static str> {
     for (src, dst) in buffer {
-      println!("Moving\n    {:?}\nto\n    {:?}", src, dst);
-      if !config.dryrun {
-        if config.undo {
-            create_undo_file(buffer);
-        }
-        if config.git {
-          let src = src.to_str().unwrap();
-          let dst = dst.to_str().unwrap();
-          let _output = Command::new("git")
-            .args(&["mv", src, dst])
-            .output()
-            .expect("Error invoking git.");
-          // TODO: do something with output
-        }
-        else {
-          match fs::rename(src, dst) {
-            Ok(_) => {
+        println!("Moving\n    {:?}\nto\n    {:?}", src, dst);
+        if !config.dryrun {
+            if config.undo {
+                create_undo_file(buffer);
             }
-            Err(reason) => {
-              eprintln!("Error moving file: {:?}", reason);
-              return Err("Error moving file.")
+            if config.git {
+                let src = src.to_str().unwrap();
+                let dst = dst.to_str().unwrap();
+                let _output = Command::new("git")
+                    .args(&["mv", src, dst])
+                    .output()
+                    .expect("Error invoking git.");
+            // TODO: do something with output
+            } else {
+                match fs::rename(src, dst) {
+                    Ok(_) => {}
+                    Err(reason) => {
+                        eprintln!("Error moving file: {:?}", reason);
+                        return Err("Error moving file.");
+                    }
+                }
             }
-          }
         }
-      }
     }
     Ok(())
 }

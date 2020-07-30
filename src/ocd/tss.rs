@@ -1,12 +1,12 @@
 // use clap::{Arg, App};
-use regex::Regex;
 use crate::ocd::config::Verbosity;
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::fs;
 use std::io;
 use std::option;
-use std::path::{Path,PathBuf};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use lazy_static::lazy_static;
 
 #[derive(Clone, Debug)]
 pub struct TimeStampSortConfig {
@@ -65,8 +65,7 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), &str> {
     if !config.dryrun && config.undo {
         // TODO improve this logic
         if let Verbosity::Silent = config.verbosity {
-        }
-        else {
+        } else {
             println!("Creating undo script.");
         }
         // TODO: implement undo
@@ -85,32 +84,34 @@ fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
                             Err(reason) => {
                                 // TODO improve this logic
                                 if let Verbosity::Silent = config.verbosity {
-                                }
-                                else {
+                                } else {
                                     println!("Error moving file {:?}, reason: {:?}", entry, reason);
                                 }
                             }
                         }
-                    },
+                    }
                     Err(reason) => {
                         // TODO improve this logic
                         if let Verbosity::Silent = config.verbosity {
-                        }
-                        else {
-                            println!("Unable to create directory {:?}, reason: {:?}", destination, reason);
+                        } else {
+                            println!(
+                                "Unable to create directory {:?}, reason: {:?}",
+                                destination, reason
+                            );
                         }
                     }
                 }
-            },
+            }
             None => {}
         }
     }
 }
 
 fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
-    file_name.to_str().and_then(date).map(|(year, month, day)| {
-        base_dir.join(format!("{}-{}-{}", year, month, day))
-    })
+    file_name
+        .to_str()
+        .and_then(date)
+        .map(|(year, month, day)| base_dir.join(format!("{}-{}-{}", year, month, day)))
 }
 
 fn date(filename: &str) -> Option<(&str, &str, &str)> {
@@ -132,28 +133,22 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
         let mut full_path = PathBuf::new();
         full_path.push(directory);
         match fs::create_dir(full_path) {
-            Ok(_) => {
-                Ok(())
-            },
+            Ok(_) => Ok(()),
             Err(reason) => {
                 match reason.kind() {
-                    io::ErrorKind::AlreadyExists => {
-                        Ok(())
-                    },
+                    io::ErrorKind::AlreadyExists => Ok(()),
                     _ => {
                         // TODO improve this logic
                         if let Verbosity::Silent = config.verbosity {
-                        }
-                        else {
+                        } else {
                             println!("Error: directory could not be created: {:?}", reason.kind());
                         }
                         Err(reason)
                     }
                 }
-            },
+            }
         }
-    }
-    else {
+    } else {
         Ok(())
     }
 }
@@ -165,8 +160,7 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
 
     // TODO improve this logic
     if let Verbosity::Silent = config.verbosity {
-    }
-    else {
+    } else {
         println!("{:?} => {:?}", from, to)
     }
 
@@ -176,25 +170,22 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
                 if config.undo {
                     // TODO improve this logic
                     if let Verbosity::Silent = config.verbosity {
-                    }
-                    else {
+                    } else {
                         println!("Saving undo information.");
                     }
                 }
                 Ok(())
-            },
+            }
             Err(reason) => {
                 // TODO improve this logic
                 if let Verbosity::Silent = config.verbosity {
-                }
-                else {
+                } else {
                     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
                 }
                 Err(reason)
-            },
+            }
         }
-    }
-    else {
+    } else {
         Ok(())
     }
 }
