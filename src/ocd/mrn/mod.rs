@@ -15,6 +15,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use voca_rs::*;
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -371,43 +372,40 @@ fn apply_upper_case(filename: &str) -> String {
     filename.to_uppercase()
 }
 
-fn apply_title_case(filename: &str) -> String {
-    String::from(filename)
+fn apply_title_case(_filename: &str) -> String {
+    unimplemented!()
 }
 
 fn apply_sentence_case(filename: &str) -> String {
-    // let x1 = filename.split_whitespace();
-    // let x2 = iter.collect();
-    // print!("x2: {:?}", x2);
-    String::from(filename)
+    filename._capitalize(true)
 }
 
-fn apply_camel_case_join(filename: &str) -> String {
-    String::from(filename)
+fn apply_camel_case_join(_filename: &str) -> String {
+    unimplemented!()
 }
 
-fn apply_camel_case_split(filename: &str) -> String {
-    String::from(filename)
+fn apply_camel_case_split(_filename: &str) -> String {
+    unimplemented!()
 }
 
-fn apply_sanitize(filename: &str) -> String {
-    String::from(filename)
+fn apply_sanitize(_filename: &str) -> String {
+    unimplemented!()
 }
 
 fn apply_replace(filename: &str, pattern: &str, replace: &str) -> String {
     filename.replace(pattern, replace)
 }
 
-fn apply_pattern_match(filename: &str, _pattern: &str, _replace: &str) -> String {
-    String::from(filename)
+fn apply_pattern_match(_filename: &str, _pattern: &str, _replace: &str) -> String {
+    unimplemented!()
 }
 
-fn apply_extension_add(filename: &str, _extension: &str) -> String {
-    String::from(filename)
+fn apply_extension_add(_filename: &str, _extension: &str) -> String {
+    unimplemented!()
 }
 
-fn apply_extension_remove(filename: &str) -> String {
-    String::from(filename)
+fn apply_extension_remove(_filename: &str) -> String {
+    unimplemented!()
 }
 
 fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
@@ -419,12 +417,12 @@ fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     new
 }
 
-fn apply_interactive_tokenize(filename: &str) -> String {
-    String::from(filename)
+fn apply_interactive_tokenize(_filename: &str) -> String {
+    unimplemented!()
 }
 
-fn apply_interactive_pattern_match(filename: &str) -> String {
-    String::from(filename)
+fn apply_interactive_pattern_match(_filename: &str) -> String {
+    unimplemented!()
 }
 
 fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
@@ -546,6 +544,10 @@ mod test {
     #[test]
     fn title_case_test() {
         assert_eq!(
+            apply_title_case("a title has multiple words"),
+            "A Title Has Multiple Words"
+        );
+        assert_eq!(
             apply_title_case("A tItLe HaS mUlTiPlE wOrDs"),
             "A Title Has Multiple Words"
         )
@@ -553,6 +555,14 @@ mod test {
 
     #[test]
     fn sentence_case_test() {
+        assert_eq!(
+            apply_sentence_case("a sentence has multiple words"),
+            "A sentence has multiple words"
+        );
+        assert_eq!(
+            apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS"),
+            "A sentence has multiple words"
+        );
         assert_eq!(
             apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs"),
             "A sentence has multiple words"

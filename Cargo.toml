@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["cli","file","rename"]
 categories = ["command-line-utilities","filesystem"]
 description = """
-A CLI file management swiss army knife. 
+A CLI file management swiss army knife.
 """
 
 [[bin]]
@@ -27,8 +27,8 @@ regex = "1.0.0"
 walkdir = "2.1.4"
 unicode-segmentation = "1.6.0"
 remain = "0.2"
+voca_rs = "1.10.1"
 # id3 = "0.3.0"
-# voca_rs = "1.6.1"
 # case = "1.0.0"
 # heck = "0.3.1"
 # Inflector = "0.11.4"
