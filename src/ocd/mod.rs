@@ -5,6 +5,7 @@ pub mod tss;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 
+#[remain::sorted]
 #[derive(Clone, Debug)]
 pub enum Command {
     MassRename { config: MassRenameConfig },

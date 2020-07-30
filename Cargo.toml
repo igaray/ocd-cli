@@ -3,7 +3,7 @@ name = "ocd-cli"
 version = "0.0.1"
 authors = ["Iñaki Garay <igarai@gmail.com>"]
 edition = "2018"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 homepage = "https://github.com/igaray/ocd-cli"
 repository = "https://github.com/igaray/ocd-cli"
 documentation = "https://docs.rs/ocd-cli"
@@ -14,6 +14,10 @@ description = """
 A CLI file management swiss army knife. 
 """
 
+[[bin]]
+name = "ocd"
+path = "src/main.rs"
+
 [dependencies]
 clap = {version = "2.33", features = ["yaml"]}
 dialoguer = "0.3.0"
@@ -21,6 +25,8 @@ glob = "0.2"
 lazy_static = "1.3.0"
 regex = "1.0.0"
 walkdir = "2.1.4"
+unicode-segmentation = "1.6.0"
+remain = "0.2"
 # id3 = "0.3.0"
 # voca_rs = "1.6.1"
 # case = "1.0.0"

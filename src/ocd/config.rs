@@ -2,6 +2,7 @@ use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 use crate::ocd::Command;
 
+#[remain::sorted]
 #[derive(Copy, Clone, Debug)]
 pub enum Mode {
     All,
@@ -44,17 +45,13 @@ impl Config {
         match ocd_matches.subcommand() {
             ("mrn", Some(subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new().with_args(subcommand_matches);
-                let subcommand = Some(Command::MassRename {
-                    config: subcommand_config,
-                });
+                let subcommand = Some(Command::MassRename { config: subcommand_config });
                 let config = Config { subcommand };
                 Ok(config)
             }
             ("tss", Some(subcommand_matches)) => {
                 let subcommand_config = TimeStampSortConfig::new().with_args(subcommand_matches);
-                let subcommand = Some(Command::TimeStampSort {
-                    config: subcommand_config,
-                });
+                let subcommand = Some(Command::TimeStampSort { config: subcommand_config });
                 let config = Config { subcommand };
                 Ok(config)
             }

@@ -427,8 +427,21 @@ fn apply_interactive_pattern_match(filename: &str) -> String {
     String::from(filename)
 }
 
-fn apply_delete(filename: &str, _from: usize, _to: &Position) -> String {
-    String::from(filename)
+fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
+    let to_idx = match to {
+        &Position::End => { filename.len() }
+        &Position::Index { value } => {
+          if value > filename.len() {
+            filename.len()
+            }
+          else {
+            value
+            }
+        },
+    };
+    let mut s = String::from(filename);
+    s.replace_range(from_idx..to_idx, "");
+    return s
 }
 
 fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
@@ -652,7 +665,7 @@ mod test {
     fn delete_test() {
         assert_eq!(apply_delete("aa bb cc", 0, &Position::End), "");
         assert_eq!(
-            apply_delete("aa bb cc", 0, &Position::Index { value: 2 }),
+            apply_delete("aa bb cc", 0, &Position::Index { value: 3 }),
             "bb cc"
         );
         assert_eq!(
