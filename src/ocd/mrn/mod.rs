@@ -8,14 +8,14 @@ mod parser;
 
 use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
+use crate::ocd::config;
 use crate::ocd::config::{Mode, Verbosity};
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
-use voca_rs::*;
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -85,10 +85,25 @@ impl MassRenameConfig {
     }
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
+        fn glob_value(glob: Option<&str>) -> Option<String> {
+            match glob {
+                Some(glob_input) => Some(String::from(glob_input)),
+                None => None,
+            }
+        }
+
+        fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
+            let rules = matches.value_of("rules");
+            match rules {
+                Some(rules_input) => Some(rules_input.to_string()),
+                None => None,
+            }
+        }
+
         MassRenameConfig {
-            verbosity: verbosity_value(matches),
-            mode: mode_value(matches.value_of("mode").unwrap()),
-            dir: directory_value(matches.value_of("dir").unwrap()),
+            verbosity: config::verbosity_value(matches),
+            mode: config::mode_value(matches.value_of("mode").unwrap()),
+            dir: config::directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
             git: matches.is_present("git"),
             recurse: matches.is_present("recurse"),
@@ -97,46 +112,6 @@ impl MassRenameConfig {
             glob: glob_value(matches.value_of("glob")),
             rules_raw: rules_value(matches),
         }
-    }
-}
-
-fn verbosity_value(matches: &clap::ArgMatches) -> Verbosity {
-    let level = matches.occurrences_of("verbosity");
-    let silent = matches.is_present("silent");
-    match (silent, level) {
-        (true, _) => Verbosity::Silent,
-        (false, 0) => Verbosity::Low,
-        (false, 1) => Verbosity::Medium,
-        (false, 2) => Verbosity::High,
-        _ => Verbosity::Debug,
-    }
-}
-
-fn mode_value(mode: &str) -> Mode {
-    match mode {
-        "a" => Mode::All,
-        "d" => Mode::Directories,
-        "f" => Mode::Files,
-        _ => Mode::Files,
-    }
-}
-
-fn directory_value(dir: &str) -> PathBuf {
-    Path::new(dir).to_path_buf()
-}
-
-fn glob_value(glob: Option<&str>) -> Option<String> {
-    match glob {
-        Some(glob_input) => Some(String::from(glob_input)),
-        None => None,
-    }
-}
-
-fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
-    let rules = matches.value_of("rules");
-    match rules {
-        Some(rules_input) => Some(rules_input.to_string()),
-        None => None,
     }
 }
 
@@ -426,9 +401,9 @@ fn apply_interactive_pattern_match(_filename: &str) -> String {
 }
 
 fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
-    let to_idx = match to {
-        &Position::End => filename.len(),
-        &Position::Index { value } => {
+    let to_idx = match *to {
+        Position::End => filename.len(),
+        Position::Index { value } => {
             if value > filename.len() {
                 filename.len()
             } else {
@@ -438,7 +413,7 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     };
     let mut s = String::from(filename);
     s.replace_range(from_idx..to_idx, "");
-    return s;
+    s
 }
 
 fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
@@ -446,7 +421,7 @@ fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
     match File::create("./undo.sh") {
         Ok(mut output_file) => {
             for (src, dst) in buffer {
-                match write!(output_file, "mv -i {:?} {:?}\n", dst, src) {
+                match writeln!(output_file, "mv -i {:?} {:?}", dst, src) {
                     Ok(_) => {}
                     Err(reason) => {
                         eprintln!("Error writing to undo file: {:?}", reason);

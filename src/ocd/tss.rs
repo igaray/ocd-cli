@@ -1,4 +1,4 @@
-// use clap::{Arg, App};
+use crate::ocd::config;
 use crate::ocd::config::Verbosity;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -30,31 +30,13 @@ impl TimeStampSortConfig {
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> TimeStampSortConfig {
         TimeStampSortConfig {
-            verbosity: verbosity_value(matches),
-            dir: directory_value(matches.value_of("dir").unwrap()),
+            verbosity: config::verbosity_value(matches),
+            dir: config::directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
             undo: matches.is_present("undo"),
             yes: matches.is_present("yes"),
         }
     }
-}
-
-// TODO: deduplicate, copied from mrn/mod.rs
-fn verbosity_value(matches: &clap::ArgMatches) -> Verbosity {
-    let level = matches.occurrences_of("verbosity");
-    let silent = matches.is_present("silent");
-    match (silent, level) {
-        (true, _) => Verbosity::Silent,
-        (false, 0) => Verbosity::Low,
-        (false, 1) => Verbosity::Medium,
-        (false, 2) => Verbosity::High,
-        _ => Verbosity::Debug,
-    }
-}
-
-// TODO: deduplicate, copied from mrn/mod.rs
-fn directory_value(dir: &str) -> PathBuf {
-    Path::new(dir).to_path_buf()
 }
 
 pub fn run(config: &TimeStampSortConfig) -> Result<(), &str> {
@@ -75,34 +57,27 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), &str> {
 
 fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
     if !entry.is_dir() {
-        match destination(&config.dir, &entry) {
-            Some(destination) => {
-                match create_directory(config, &destination) {
-                    Ok(_) => {
-                        match move_file(config, &entry, &destination) {
-                            Ok(_) => {}
-                            Err(reason) => {
-                                // TODO improve this logic
-                                if let Verbosity::Silent = config.verbosity {
-                                } else {
-                                    println!("Error moving file {:?}, reason: {:?}", entry, reason);
-                                }
-                            }
-                        }
-                    }
+        if let Some(destination) = destination(&config.dir, &entry) {
+            match create_directory(config, &destination) {
+                Ok(_) => match move_file(config, &entry, &destination) {
+                    Ok(_) => {}
                     Err(reason) => {
-                        // TODO improve this logic
                         if let Verbosity::Silent = config.verbosity {
                         } else {
-                            println!(
-                                "Unable to create directory {:?}, reason: {:?}",
-                                destination, reason
-                            );
+                            println!("Error moving file {:?}, reason: {:?}", entry, reason);
                         }
+                    }
+                },
+                Err(reason) => {
+                    if let Verbosity::Silent = config.verbosity {
+                    } else {
+                        println!(
+                            "Unable to create directory {:?}, reason: {:?}",
+                            destination, reason
+                        );
                     }
                 }
             }
-            None => {}
         }
     }
 }
@@ -134,19 +109,16 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
         full_path.push(directory);
         match fs::create_dir(full_path) {
             Ok(_) => Ok(()),
-            Err(reason) => {
-                match reason.kind() {
-                    io::ErrorKind::AlreadyExists => Ok(()),
-                    _ => {
-                        // TODO improve this logic
-                        if let Verbosity::Silent = config.verbosity {
-                        } else {
-                            println!("Error: directory could not be created: {:?}", reason.kind());
-                        }
-                        Err(reason)
+            Err(reason) => match reason.kind() {
+                io::ErrorKind::AlreadyExists => Ok(()),
+                _ => {
+                    if let Verbosity::Silent = config.verbosity {
+                    } else {
+                        println!("Error: directory could not be created: {:?}", reason.kind());
                     }
+                    Err(reason)
                 }
-            }
+            },
         }
     } else {
         Ok(())
@@ -158,7 +130,6 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
     to.push(dest);
     to.push(from.file_name().unwrap());
 
-    // TODO improve this logic
     if let Verbosity::Silent = config.verbosity {
     } else {
         println!("{:?} => {:?}", from, to)
@@ -168,7 +139,6 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
         match fs::rename(from, to) {
             Ok(_) => {
                 if config.undo {
-                    // TODO improve this logic
                     if let Verbosity::Silent = config.verbosity {
                     } else {
                         println!("Saving undo information.");
@@ -177,7 +147,6 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
                 Ok(())
             }
             Err(reason) => {
-                // TODO improve this logic
                 if let Verbosity::Silent = config.verbosity {
                 } else {
                     println!("Error: file {:?} could not be renamed: {:?}", from, reason);

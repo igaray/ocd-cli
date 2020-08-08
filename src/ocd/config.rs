@@ -1,6 +1,7 @@
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 use crate::ocd::Command;
+use std::path::{Path, PathBuf};
 
 #[remain::sorted]
 #[derive(Copy, Clone, Debug)]
@@ -62,5 +63,30 @@ impl Config {
             (_, Some(_)) => Err("Unknown command supplied."),
             _ => Err("No command supplied."),
         }
+    }
+}
+
+pub fn verbosity_value(matches: &clap::ArgMatches) -> Verbosity {
+    let level = matches.occurrences_of("verbosity");
+    let silent = matches.is_present("silent");
+    match (silent, level) {
+        (true, _) => Verbosity::Silent,
+        (false, 0) => Verbosity::Low,
+        (false, 1) => Verbosity::Medium,
+        (false, 2) => Verbosity::High,
+        _ => Verbosity::Debug,
+    }
+}
+
+pub fn directory_value(dir: &str) -> PathBuf {
+    Path::new(dir).to_path_buf()
+}
+
+pub fn mode_value(mode: &str) -> Mode {
+    match mode {
+        "a" => Mode::All,
+        "d" => Mode::Directories,
+        "f" => Mode::Files,
+        _ => Mode::Files,
     }
 }

@@ -29,6 +29,6 @@ fn main() {
                 process::exit(1)
             }
         }
-        None => {}
+        None => unreachable!(),
     }
 }
