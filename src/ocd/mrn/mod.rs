@@ -4,12 +4,14 @@ extern crate glob;
 extern crate walkdir;
 
 mod lexer;
+mod output;
 mod parser;
 
 use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
-use crate::ocd::config;
-use crate::ocd::config::{Mode, Verbosity};
+use crate::ocd::config::{directory_value, mode_value, verbosity_value, Mode, Verbosity};
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
@@ -101,9 +103,9 @@ impl MassRenameConfig {
         }
 
         MassRenameConfig {
-            verbosity: config::verbosity_value(matches),
-            mode: config::mode_value(matches.value_of("mode").unwrap()),
-            dir: config::directory_value(matches.value_of("dir").unwrap()),
+            verbosity: verbosity_value(matches),
+            mode: mode_value(matches.value_of("mode").unwrap()),
+            dir: directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
             git: matches.is_present("git"),
             recurse: matches.is_present("recurse"),
@@ -121,14 +123,14 @@ pub fn run(config: &MassRenameConfig) -> Result<(), &str> {
     let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
     let files = entries(&config)?;
 
-    if let Verbosity::Debug = config.verbosity {
-        println!("{:#?}", &config);
-        println!("Tokens:\n{:#?}", &tokens);
-        println!("Rules:\n{:#?}", &rules);
-        println!("Files:\n{:#?}", &files);
-    }
+    crate::ocd::mrn::output::state(config, &tokens, &rules, &files);
 
     let buffer = apply_rules(&config, &rules, &files)?;
+
+    if config.undo {
+        create_undo_script(config, &buffer);
+    }
+
     if config.yes || user_confirm() {
         execute_rules(&config, &buffer)
     } else {
@@ -265,77 +267,131 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
 }
 
 fn apply_rules(
-    _config: &MassRenameConfig,
+    config: &MassRenameConfig,
     rules: &[Rule],
     files: &[PathBuf],
 ) -> Result<BTreeMap<PathBuf, PathBuf>, &'static str> {
     let mut buffer = new_buffer(files);
 
-    println!("Applying rules...");
     for rule in rules {
-        for dst in buffer.values_mut() {
-            let dst2 = dst.clone();
-            if let Some(filename) = dst2.file_stem() {
-                match dst2.extension() {
-                    Some(extension) => {
-                        println!("filename: {:?} extension: {:?}", filename, extension);
-                        let extension = extension.to_str();
-                        let extension = extension.unwrap();
-                        let filename = filename.to_str().unwrap();
-                        println!("    from: {:?}", filename);
-                        let filename = apply_rule(&rule, &filename);
-                        dst.set_file_name(filename);
-                        dst.set_extension(extension);
-                        println!("    to:   {:?}", dst);
-                    }
-                    None => {
-                        println!("filename: {:?}", filename);
-                        let filename = filename.to_str().unwrap();
-                        println!("    from: {:?}", filename);
-                        let filename = apply_rule(&rule, &filename);
-                        dst.set_file_name(filename);
-                        println!("    to:   {:?}", dst);
-                    }
-                }
-            }
+        for mut path in buffer.values_mut() {
+            apply_rule(&rule, &mut path);
         }
     }
-
-    println!("Result:");
-    print_buffer(&buffer);
-
+    crate::ocd::mrn::output::result(config, &buffer);
     Ok(buffer)
 }
 
-fn apply_rule(rule: &Rule, filename: &str) -> String {
+fn apply_rule(rule: &Rule, path: &mut PathBuf) {
+    let filename = path.file_stem().unwrap();
+    let filename = filename.to_str().unwrap();
     match rule {
-        Rule::LowerCase => apply_lower_case(filename),
-        Rule::UpperCase => apply_upper_case(filename),
-        Rule::TitleCase => apply_title_case(filename),
-        Rule::SentenceCase => apply_sentence_case(filename),
-        Rule::CamelCaseJoin => apply_camel_case_join(filename),
-        Rule::CamelCaseSplit => apply_camel_case_split(filename),
-        Rule::Sanitize => apply_sanitize(filename),
-        Rule::Replace { pattern, replace } => apply_replace(filename, pattern, replace),
-        Rule::ReplaceSpaceDash => apply_replace(filename, " ", "-"),
-        Rule::ReplaceSpacePeriod => apply_replace(filename, " ", "."),
-        Rule::ReplaceSpaceUnder => apply_replace(filename, " ", "_"),
-        Rule::ReplaceDashPeriod => apply_replace(filename, "-", "."),
-        Rule::ReplaceDashSpace => apply_replace(filename, "-", " "),
-        Rule::ReplaceDashUnder => apply_replace(filename, "-", "_"),
-        Rule::ReplacePeriodDash => apply_replace(filename, ".", "-"),
-        Rule::ReplacePeriodSpace => apply_replace(filename, ".", " "),
-        Rule::ReplacePeriodUnder => apply_replace(filename, ".", "_"),
-        Rule::ReplaceUnderDash => apply_replace(filename, "_", "-"),
-        Rule::ReplaceUnderPeriod => apply_replace(filename, "_", "."),
-        Rule::ReplaceUnderSpace => apply_replace(filename, "_", " "),
-        Rule::PatternMatch { pattern, replace } => apply_pattern_match(filename, pattern, replace),
-        Rule::ExtensionAdd { extension } => apply_extension_add(filename, extension),
-        Rule::ExtensionRemove => apply_extension_remove(filename),
-        Rule::Insert { text, position } => apply_insert(filename, text, position),
-        Rule::InteractiveTokenize => apply_interactive_tokenize(filename),
-        Rule::InteractivePatternMatch => apply_interactive_pattern_match(filename),
-        Rule::Delete { from, to } => apply_delete(filename, *from, to),
+        Rule::LowerCase => {
+            let filename = apply_lower_case(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::UpperCase => {
+            let filename = apply_upper_case(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::TitleCase => {
+            let filename = apply_title_case(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::SentenceCase => {
+            let filename = apply_sentence_case(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::CamelCaseJoin => {
+            let filename = apply_camel_case_join(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::CamelCaseSplit => {
+            let filename = apply_camel_case_split(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::Sanitize => {
+            let filename = apply_sanitize(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::Replace { pattern, replace } => {
+            let filename = apply_replace(filename, pattern, replace);
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceSpaceDash => {
+            let filename = apply_replace(filename, " ", "-");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceSpacePeriod => {
+            let filename = apply_replace(filename, " ", ".");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceSpaceUnder => {
+            let filename = apply_replace(filename, " ", "_");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceDashPeriod => {
+            let filename = apply_replace(filename, "-", ".");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceDashSpace => {
+            let filename = apply_replace(filename, "-", " ");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceDashUnder => {
+            let filename = apply_replace(filename, "-", "_");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplacePeriodDash => {
+            let filename = apply_replace(filename, ".", "-");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplacePeriodSpace => {
+            let filename = apply_replace(filename, ".", " ");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplacePeriodUnder => {
+            let filename = apply_replace(filename, ".", "_");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceUnderDash => {
+            let filename = apply_replace(filename, "_", "-");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceUnderPeriod => {
+            let filename = apply_replace(filename, "_", ".");
+            buffer_rename(path, filename);
+        }
+        Rule::ReplaceUnderSpace => {
+            let filename = apply_replace(filename, "_", " ");
+            buffer_rename(path, filename);
+        }
+        Rule::PatternMatch { pattern, replace } => {
+            let filename = apply_pattern_match(filename, pattern, replace);
+            buffer_rename(path, filename);
+        }
+        Rule::ExtensionAdd { extension } => {
+            path.set_extension(extension);
+        }
+        Rule::ExtensionRemove => {
+            path.set_extension("");
+        }
+        Rule::Insert { text, position } => {
+            let filename = apply_insert(filename, text, position);
+            buffer_rename(path, filename);
+        }
+        Rule::InteractiveTokenize => {
+            let filename = apply_interactive_tokenize(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::InteractivePatternMatch => {
+            let filename = apply_interactive_pattern_match(filename);
+            buffer_rename(path, filename);
+        }
+        Rule::Delete { from, to } => {
+            let filename = apply_delete(filename, *from, to);
+            buffer_rename(path, filename);
+        }
     }
 }
 
@@ -348,11 +404,50 @@ fn apply_upper_case(filename: &str) -> String {
 }
 
 fn apply_title_case(filename: &str) -> String {
-    voca_rs::case::title_case(filename)
+    // An alternative is this single-line implementation:
+    // voca_rs::case::title_case(filename)
+    // but it doesn't have the same behavior.
+    let mut titlecase_words = Vec::new();
+    for word in filename.split_whitespace() {
+        let titlecase_word = titlecase_word(word);
+        titlecase_words.push(titlecase_word);
+    }
+    titlecase_words.join(" ")
 }
 
 fn apply_sentence_case(filename: &str) -> String {
-    voca_rs::case::capitalize(filename, true)
+    // An alternative is this single-line implementation:
+    // voca_rs::case::capitalize(filename, true)
+    // but it doesn't have the same behavior.
+    // Split the words in the filename separated by whitespace,
+    // and collect them into a vector so we can call split_first()
+    let words: Vec<&str> = filename.split_whitespace().collect();
+    if let Some((first_word, remaining_words)) = words.split_first() {
+        let titlecase_word = titlecase_word(first_word);
+        let mut sentencecase_words = vec![titlecase_word];
+        for word in remaining_words {
+            sentencecase_words.push(word.to_lowercase());
+        }
+        sentencecase_words.join(" ")
+    } else {
+        String::from(filename)
+    }
+}
+
+fn titlecase_word(word: &str) -> String {
+    let mut titlecase_word = String::new();
+    let chars: Vec<char> = word.chars().collect();
+    if let Some((first_char, remaining_chars)) = chars.split_first() {
+        for c in first_char.to_uppercase() {
+            titlecase_word.push(c);
+        }
+        for c in remaining_chars {
+            for d in c.to_lowercase() {
+                titlecase_word.push(d);
+            }
+        }
+    }
+    titlecase_word
 }
 
 fn apply_camel_case_join(_filename: &str) -> String {
@@ -363,24 +458,158 @@ fn apply_camel_case_split(_filename: &str) -> String {
     unimplemented!()
 }
 
-fn apply_sanitize(_filename: &str) -> String {
-    unimplemented!()
+fn apply_sanitize(filename: &str) -> String {
+    lazy_static! {
+        static ref ALPHANUMERIC_REGEX: Regex = Regex::new(r"([a-zA-Z0-9])+").unwrap();
+    }
+
+    let mut all = Vec::new();
+    for capture in ALPHANUMERIC_REGEX.captures_iter(filename) {
+        all.push(String::from(&capture[0]));
+    }
+    all.join(" ")
 }
 
 fn apply_replace(filename: &str, pattern: &str, replace: &str) -> String {
     filename.replace(pattern, replace)
 }
 
-fn apply_pattern_match(_filename: &str, _pattern: &str, _replace: &str) -> String {
-    unimplemented!()
-}
+fn apply_pattern_match(filename: &str, match_pattern: &str, replace_pattern: &str) -> String {
+    let match_pattern = String::from(match_pattern);
+    let match_pattern = match_pattern.replace(".", r"\.");
+    let match_pattern = match_pattern.replace("[", r"\[");
+    let match_pattern = match_pattern.replace("]", r"\]");
+    let match_pattern = match_pattern.replace("(", r"\(");
+    let match_pattern = match_pattern.replace(")", r"\)");
+    let match_pattern = match_pattern.replace("?", r"\?");
+    let match_pattern = match_pattern.replace("{#}", r"([0-9]*)");
+    let match_pattern = match_pattern.replace("{L}", r"([a-zA-Z]*)");
+    let match_pattern = match_pattern.replace("{C}", r"([\S]*)");
+    let match_pattern = match_pattern.replace("{X}", r"([\S\s]*)");
+    let match_pattern = match_pattern.replace("{@}", r"(.*)");
 
-fn apply_extension_add(_filename: &str, _extension: &str) -> String {
-    unimplemented!()
-}
+    println!("filename:        {:?}", filename);
+    println!("match pattern:   {:?}", match_pattern);
+    println!("replace pattern: {:?}", replace_pattern);
 
-fn apply_extension_remove(_filename: &str) -> String {
-    unimplemented!()
+    let regex = Regex::new(&match_pattern).unwrap();
+
+    let captures = regex.captures_iter(filename);
+    let mut replace_pattern = String::from(replace_pattern);
+    for capture in captures {
+        let matches: Vec<Option<regex::Match>> = capture.iter().skip(1).collect();
+        println!("    matches:   {:?}\n", matches);
+        for (i, _m) in matches.iter().enumerate() {
+            let mark = format!("{{{}}}", i + 1);
+            println!("    mark:   {:?}", mark);
+            let content = matches.get(i).unwrap().unwrap().as_str();
+            println!("    before: {:?}", replace_pattern);
+            replace_pattern = replace_pattern.replace(&mark, &content);
+            println!("    after:  {:?}\n", replace_pattern);
+        }
+    }
+    replace_pattern
+    /*
+    def process_pattern_match(name, pattern_ini, pattern_end, count):
+        pattern = pattern_ini
+        pattern = pattern.replace(".", "\.")
+        pattern = pattern.replace("[", "\[")
+        pattern = pattern.replace("]", "\]")
+        pattern = pattern.replace("(", "\(")
+        pattern = pattern.replace(")", "\)")
+        pattern = pattern.replace("?", "\?")
+        pattern = pattern.replace("{#}", "([0-9]*)")
+        pattern = pattern.replace("{L}", "([a-zA-Z]*)")
+        pattern = pattern.replace("{C}", "([\S]*)")
+        pattern = pattern.replace("{X}", "([\S\s]*)")
+        pattern = pattern.replace("{@}", "(.*)")
+        repattern = re.compile(pattern)
+        newname = pattern_end
+        try:
+            search = repattern.search(name)
+            if search:
+                groups = search.groups()
+                for i in range(len(groups)):
+                    newname = newname.replace("{" + str(i+1) + "}", groups[i])
+            else:
+                return None
+        except Exception as e:
+            return None
+
+        # Replace {num} with item number.
+        # If {num2} the number will be 02
+        # If {num3+10} the number will be 010
+        count = str(count)
+        cr = re.compile("{(num)([0-9]*)}|{(num)([0-9]*)(\+)([0-9]*)}")
+        try:
+            cg = cr.search(newname).groups()
+            if len(cg) == 6:
+                if cg[0] == "num":
+                    # {num2}
+                    if cg[1] != "":
+                        count = count.zfill(int(cg[1]))
+                    newname = cr.sub(count, newname)
+                elif cg[2] == "num" and cg[4] == "+":
+                    # {num2+5}
+                    if cg[5] != "":
+                        count = str(int(count)+int(cg[5]))
+                    if cg[3] != "":
+                        count = count.zfill(int(cg[3]))
+            newname = cr.sub(count, newname)
+        except:
+            pass
+
+        # Some date replacements
+        n = newname
+        n = n.replace("{date}",      time.strftime("%Y-%m-%d", time.localtime()))
+        n = n.replace("{year}",      time.strftime("%Y",       time.localtime()))
+        n = n.replace("{month}",     time.strftime("%m",       time.localtime()))
+        n = n.replace("{monthname}", time.strftime("%B",       time.localtime()))
+        n = n.replace("{monthsimp}", time.strftime("%b",       time.localtime()))
+        n = n.replace("{day}",       time.strftime("%d",       time.localtime()))
+        n = n.replace("{dayname}",   time.strftime("%A",       time.localtime()))
+        n = n.replace("{daysimp}",   time.strftime("%a",       time.localtime()))
+        newname = n
+
+        # Replace {rand} with random number between 0 and 100.
+        # If {rand500} the number will be between 0 and 500
+        # If {rand10-20} the number will be between 10 and 20
+        # If you add ,[ 5 the number will be padded with 5 digits
+        # ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
+        rnd = ""
+        cr = re.compile("{(rand)([0-9]*)}"
+                        "|{(rand)([0-9]*)(\-)([0-9]*)}"
+                        "|{(rand)([0-9]*)(\,)([0-9]*)}"
+                        "|{(rand)([0-9]*)(\-)([0-9]*)(\,)([0-9]*)}")
+        try:
+            cg = cr.search(newname).groups()
+            if len(cg) == 16:
+                if (cg[0] == "rand"):
+                    if (cg[1] == ""):
+                        # {rand}
+                        rnd = random.randint(0, 100)
+                    else:
+                        # {rand2}
+                        rnd = random.randint(0, int(cg[1]))
+                elif rand_case_1(cg):
+                    # {rand10-100}
+                    rnd = random.randint(int(cg[3]), int(cg[5]))
+                elif rand_case_2(cg):
+                    if (cg[7] == ""):
+                        # {rand,2}
+                        rnd = str(random.randint(0, 100)).zfill(int(cg[9]))
+                    else:
+                        # {rand10,2}
+                        rnd = str(random.randint(0, int(cg[7]))).zfill(int(cg[9]))
+                elif rand_case_3(cg):
+                    # {rand2-10,3}
+                    s = str(random.randint(int(cg[11]), int(cg[13])))
+                    rnd = s.zfill(int(cg[15]))
+            newname = cr.sub(str(rnd), newname)
+        except:
+            pass
+        return newname
+    */
 }
 
 fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
@@ -401,6 +630,24 @@ fn apply_interactive_pattern_match(_filename: &str) -> String {
 }
 
 fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
+    // This was the previous implementation:
+    // let mut filename2 = String::new();
+    // let filename1: Vec<char> = filename.chars().collect();
+    // for (idx, chr) in filename1.iter().enumerate() {
+    //     match to {
+    //         Position::End => {
+    //             if !(from <= idx) {
+    //                 filename2.push(*chr);
+    //             }
+    //         }
+    //         Position::Index { value } => {
+    //             if !((from <= idx) && (idx <= *value)) {
+    //                 filename2.push(*chr);
+    //             }
+    //         }
+    //     }
+    // }
+    // filename2
     let to_idx = match *to {
         Position::End => filename.len(),
         Position::Index { value } => {
@@ -416,21 +663,25 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     s
 }
 
-fn create_undo_file(buffer: &BTreeMap<PathBuf, PathBuf>) {
-    println!("Creating undo script.");
-    match File::create("./undo.sh") {
-        Ok(mut output_file) => {
-            for (src, dst) in buffer {
-                match writeln!(output_file, "mv -i {:?} {:?}", dst, src) {
-                    Ok(_) => {}
-                    Err(reason) => {
+fn create_undo_script(config: &MassRenameConfig, buffer: &BTreeMap<PathBuf, PathBuf>) {
+    if !config.verbosity.is_silent() {
+        println!("Creating undo script.");
+        match File::create("./undo.sh") {
+            Ok(mut output_file) => {
+                for (src, dst) in buffer {
+                    let result = if config.git {
+                        writeln!(output_file, "git mv {:?} {:?}", dst, src)
+                    } else {
+                        writeln!(output_file, "mv -i {:?} {:?}", dst, src)
+                    };
+                    if let Err(reason) = result {
                         eprintln!("Error writing to undo file: {:?}", reason);
                     }
                 }
             }
-        }
-        Err(reason) => {
-            eprintln!("Error creating undo file: {:?}", reason);
+            Err(reason) => {
+                eprintln!("Error creating undo file: {:?}", reason);
+            }
         }
     }
 }
@@ -440,11 +691,8 @@ fn execute_rules(
     buffer: &BTreeMap<PathBuf, PathBuf>,
 ) -> Result<(), &'static str> {
     for (src, dst) in buffer {
-        println!("Moving\n    {:?}\nto\n    {:?}", src, dst);
+        crate::ocd::mrn::output::file_move(config, src, dst);
         if !config.dryrun {
-            if config.undo {
-                create_undo_file(buffer);
-            }
             if config.git {
                 let src = src.to_str().unwrap();
                 let dst = dst.to_str().unwrap();
@@ -475,10 +723,13 @@ fn new_buffer(files: &[PathBuf]) -> BTreeMap<PathBuf, PathBuf> {
     buffer
 }
 
-fn print_buffer(buffer: &BTreeMap<PathBuf, PathBuf>) {
-    for (src, dst) in buffer {
-        println!("    {:?} => {:?}", src, dst)
-    }
+fn buffer_rename(path: &mut PathBuf, filename: String) {
+    let extension = match path.extension() {
+        None => String::new(),
+        Some(extension) => String::from(extension.to_str().unwrap()),
+    };
+    path.set_file_name(filename);
+    path.set_extension(extension);
 }
 
 fn user_confirm() -> bool {
@@ -495,164 +746,97 @@ fn user_confirm() -> bool {
 mod test {
     use crate::ocd::mrn::apply_camel_case_join;
     use crate::ocd::mrn::apply_camel_case_split;
+    use crate::ocd::mrn::apply_delete;
+    use crate::ocd::mrn::apply_insert;
     use crate::ocd::mrn::apply_lower_case;
+    use crate::ocd::mrn::apply_pattern_match;
     use crate::ocd::mrn::apply_replace;
+    use crate::ocd::mrn::apply_sanitize;
     use crate::ocd::mrn::apply_sentence_case;
     use crate::ocd::mrn::apply_title_case;
     use crate::ocd::mrn::apply_upper_case;
     use crate::ocd::mrn::Position;
-    // use ocd::mrn::apply_sanitize;
-    use crate::ocd::mrn::apply_delete;
-    use crate::ocd::mrn::apply_insert;
-    use crate::ocd::mrn::apply_pattern_match;
 
-    #[test]
-    fn lower_case_test() {
-        assert_eq!(apply_lower_case("LoWeRcAsE"), "lowercase")
+    macro_rules! t {
+        ($t:ident : $s1:expr => $s2:expr) => {
+            #[test]
+            fn $t() {
+                assert_eq!($s1, $s2)
+            }
+        };
     }
 
-    #[test]
-    fn upper_case_test() {
-        assert_eq!(apply_upper_case("UpPeRcAsE"), "UPPERCASE")
-    }
+    // t!(test3: "MixedUP CamelCase, with some Spaces" => "Mixed Up Camel Case With Some Spaces");
+    // t!(test4: "mixed_up_ snake_case, with some _spaces" => "Mixed Up Snake Case With Some Spaces");
+    // t!(test5: "kebab-case" => "Kebab Case");
+    // t!(test6: "SHOUTY_SNAKE_CASE" => "Shouty Snake Case");
+    // t!(test7: "snake_case" => "Snake Case");
+    // t!(test8: "this-contains_ ALLKinds OfWord_Boundaries" => "This Contains All Kinds Of Word Boundaries");
 
-    #[test]
-    fn title_case_test() {
-        assert_eq!(
-            apply_title_case("a title has multiple words"),
-            "A Title Has Multiple Words"
-        );
-        assert_eq!(
-            apply_title_case("A TITLE HAS MULTIPLE WORDS"),
-            "A Title Has Multiple Words"
-        )
-    }
-
-    #[test]
-    fn sentence_case_test() {
-        assert_eq!(
-            apply_sentence_case("a sentence has multiple words"),
-            "A sentence has multiple words"
-        );
-        assert_eq!(
-            apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS"),
-            "A sentence has multiple words"
-        );
-        assert_eq!(
-            apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs"),
-            "A sentence has multiple words"
-        )
-    }
-
-    #[test]
-    fn camel_case_join_test() {
-        assert_eq!(apply_camel_case_join("Camel case Join"), "CamelCaseJoin")
-    }
-
-    #[test]
-    fn camel_case_split_test() {
-        assert_eq!(apply_camel_case_split("CamelCaseSplit"), "Camel Case Split")
-    }
-
-    #[test]
-    fn replace_test() {
-        assert_eq!(apply_replace("aa bbccdd ee", "cc", "ff"), "aa bbffdd ee")
-    }
-
-    #[test]
-    fn replace_space_dash_test() {
-        assert_eq!(apply_replace("aa bb cc dd", " ", "-"), "aa-bb-cc-dd")
-    }
-
-    #[test]
-    fn replace_space_period_test() {
-        assert_eq!(apply_replace("aa bb cc dd", " ", "."), "aa.bb.cc.dd")
-    }
-
-    #[test]
-    fn replace_space_under_test() {
-        assert_eq!(apply_replace("aa bb cc dd", " ", "_"), "aa_bb_cc_dd")
-    }
-
-    #[test]
-    fn replace_dash_period_test() {
-        assert_eq!(apply_replace("aa-bb-cc-dd", "-", "."), "aa.bb.cc.dd")
-    }
-
-    #[test]
-    fn replace_dash_space_test() {
-        assert_eq!(apply_replace("aa-bb-cc-dd", "-", " "), "aa bb cc dd")
-    }
-
-    #[test]
-    fn replace_dash_under_test() {
-        assert_eq!(apply_replace("aa-bb-cc-dd", "-", "_"), "aa_bb_cc_dd")
-    }
-
-    #[test]
-    fn replace_period_dash_test() {
-        assert_eq!(apply_replace("aa.bb.cc.dd", ".", "-"), "aa-bb-cc-dd")
-    }
-
-    #[test]
-    fn replace_period_space_test() {
-        assert_eq!(apply_replace("aa.bb.cc.dd", ".", " "), "aa bb cc dd")
-    }
-
-    #[test]
-    fn replace_period_under_test() {
-        assert_eq!(apply_replace("aa.bb.cc.dd", ".", "_"), "aa_bb_cc_dd")
-    }
-
-    #[test]
-    fn replace_under_dash_test() {
-        assert_eq!(apply_replace("aa_bb_cc_dd", "_", "-"), "aa-bb-cc-dd")
-    }
-
-    #[test]
-    fn replace_under_period_test() {
-        assert_eq!(apply_replace("aa_bb_cc_dd", "_", "."), "aa.bb.cc.dd")
-    }
-
-    #[test]
-    fn replace_under_space_test() {
-        assert_eq!(apply_replace("aa_bb_cc_dd", "_", " "), "aa bb cc dd")
-    }
-
-    #[test]
-    fn sanitize_test() {
-        panic!("Not implemented!")
-    }
-
-    #[test]
-    fn pattern_match_test() {
-        assert_eq!(apply_pattern_match("aa bb", "{X} {X}", "{2} {1}"), "bb aa");
-        panic!("Not implemented!")
-    }
-
-    #[test]
-    fn insert_test() {
-        assert_eq!(apply_insert("aa bb", " cc", &Position::End), "aa bb cc");
-        assert_eq!(
-            apply_insert("aa bb", " cc", &Position::Index { value: 2 }),
-            "aa cc bb"
-        );
-        assert_eq!(
-            apply_insert("aa bb", "cc ", &Position::Index { value: 0 }),
-            "cc aa bb"
-        );
-    }
-
-    #[test]
-    fn delete_test() {
-        assert_eq!(apply_delete("aa bb cc", 0, &Position::End), "");
-        assert_eq!(
-            apply_delete("aa bb cc", 0, &Position::Index { value: 3 }),
-            "bb cc"
-        );
-        assert_eq!(
-            apply_delete("aa bb cc", 0, &Position::Index { value: 42 }),
-            ""
-        );
-    }
+    t!(lower_case_test:
+        apply_lower_case("LoWeRcAsE") => "lowercase");
+    t!(upper_case_test:
+        apply_upper_case("UpPeRcAsE") => "UPPERCASE");
+    t!(title_case_test_1:
+        apply_title_case("A tItLe HaS mUlTiPlE wOrDs") => "A Title Has Multiple Words");
+    t!(title_case_test_2:
+        apply_title_case("XΣXΣ baﬄe") => "Xσxσ Baﬄe");
+    t!(sentence_case_test_1:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    t!(sentence_case_test_2:
+        apply_sentence_case("a sentence has multiple words") => "A sentence has multiple words");
+    t!(sentence_case_test_3:
+        apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
+    t!(sentence_case_test_4:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    t!(camel_case_join_test:
+        apply_camel_case_join("Camel case Join") => "CamelCaseJoin");
+    t!(camel_case_split_test_1:
+        apply_camel_case_split("CamelCase") => "Camel Case");
+    t!(camel_case_split_test_2:
+        apply_camel_case_split("CamelCaseSplit") => "Camel Case Split");
+    t!(camel_case_split_test_3:
+        apply_camel_case_split("XMLHttpRequest") => "Xml Http Request");
+    t!(replace_test:
+        apply_replace("aa bbccdd ee", "cc", "ff") => "aa bbffdd ee");
+    t!(replace_space_dash_test:
+        apply_replace("aa bb cc dd", " ", "-") => "aa-bb-cc-dd");
+    t!(replace_space_period_test:
+        apply_replace("aa bb cc dd", " ", ".") => "aa.bb.cc.dd");
+    t!(replace_space_under_test:
+        apply_replace("aa bb cc dd", " ", "_") => "aa_bb_cc_dd");
+    t!(replace_dash_period_test:
+        apply_replace("aa-bb-cc-dd", "-", ".") => "aa.bb.cc.dd");
+    t!(replace_dash_space_test:
+        apply_replace("aa-bb-cc-dd", "-", " ") => "aa bb cc dd");
+    t!(replace_dash_under_test:
+        apply_replace("aa-bb-cc-dd", "-", "_") => "aa_bb_cc_dd");
+    t!(replace_period_dash_test:
+        apply_replace("aa.bb.cc.dd", ".", "-") => "aa-bb-cc-dd");
+    t!(replace_period_space_test:
+        apply_replace("aa.bb.cc.dd", ".", " ") => "aa bb cc dd");
+    t!(replace_period_under_test:
+        apply_replace("aa.bb.cc.dd", ".", "_") => "aa_bb_cc_dd");
+    t!(replace_under_dash_test:
+        apply_replace("aa_bb_cc_dd", "_", "-") => "aa-bb-cc-dd");
+    t!(replace_under_period_test:
+        apply_replace("aa_bb_cc_dd", "_", ".") => "aa.bb.cc.dd");
+    t!(replace_under_space_test:
+        apply_replace("aa_bb_cc_dd", "_", " ") => "aa bb cc dd");
+    t!(pattern_match_test:
+        apply_pattern_match("aa bb", "{X} {X}", "{2} {1}") => "bb aa");
+    t!(insert_test_1:
+        apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
+    t!(insert_test_2:
+        apply_insert("aa bb", " cc", &Position::Index { value: 2 }) => "aa cc bb");
+    t!(insert_test_3:
+        apply_insert("aa bb", "cc ", &Position::Index { value: 0 }) => "cc aa bb");
+    t!(sanitize_test:
+        apply_sanitize("04 Three village scenes_ Lakodalom [BB 87_B]") => "04 Three village scenes Lakodalom BB 87 B");
+    t!(delete_test_1:
+        apply_delete("aa bb cc", 0, &Position::End) => "");
+    t!(delete_test_2:
+        apply_delete("aa bb cc", 0, &Position::Index { value: 3 }) => "bb cc");
+    t!(delete_test_3:
+        apply_delete("aa bb cc", 0, &Position::Index { value: 42 }) => "");
 }

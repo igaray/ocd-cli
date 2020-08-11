@@ -20,6 +20,15 @@ pub enum Verbosity {
     Debug,
 }
 
+impl Verbosity {
+    pub fn is_silent(self) -> bool {
+        match self {
+            Verbosity::Silent => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Config {
     pub subcommand: Option<Command>,

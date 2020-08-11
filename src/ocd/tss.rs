@@ -1,5 +1,4 @@
-use crate::ocd::config;
-use crate::ocd::config::Verbosity;
+use crate::ocd::config::{directory_value, verbosity_value, Verbosity};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fs;
@@ -30,8 +29,8 @@ impl TimeStampSortConfig {
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> TimeStampSortConfig {
         TimeStampSortConfig {
-            verbosity: config::verbosity_value(matches),
-            dir: config::directory_value(matches.value_of("dir").unwrap()),
+            verbosity: verbosity_value(matches),
+            dir: directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
             undo: matches.is_present("undo"),
             yes: matches.is_present("yes"),
@@ -45,9 +44,7 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), &str> {
     }
 
     if !config.dryrun && config.undo {
-        // TODO improve this logic
-        if let Verbosity::Silent = config.verbosity {
-        } else {
+        if !config.verbosity.is_silent() {
             println!("Creating undo script.");
         }
         // TODO: implement undo
@@ -62,15 +59,13 @@ fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
                 Ok(_) => match move_file(config, &entry, &destination) {
                     Ok(_) => {}
                     Err(reason) => {
-                        if let Verbosity::Silent = config.verbosity {
-                        } else {
+                        if !config.verbosity.is_silent() {
                             println!("Error moving file {:?}, reason: {:?}", entry, reason);
                         }
                     }
                 },
                 Err(reason) => {
-                    if let Verbosity::Silent = config.verbosity {
-                    } else {
+                    if !config.verbosity.is_silent() {
                         println!(
                             "Unable to create directory {:?}, reason: {:?}",
                             destination, reason
@@ -83,6 +78,12 @@ fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
 }
 
 fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
+    // let file = std::fs::File::open(file_name).unwrap();
+    // let reader = exif::Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
+    // for f in reader.fields() {
+    //     println!("{} {} {}",
+    //     f.tag, f.thumbnail, f.value.display_as(f.tag));
+    // }
     file_name
         .to_str()
         .and_then(date)
@@ -112,8 +113,7 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
             Err(reason) => match reason.kind() {
                 io::ErrorKind::AlreadyExists => Ok(()),
                 _ => {
-                    if let Verbosity::Silent = config.verbosity {
-                    } else {
+                    if !config.verbosity.is_silent() {
                         println!("Error: directory could not be created: {:?}", reason.kind());
                     }
                     Err(reason)
@@ -130,8 +130,7 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
     to.push(dest);
     to.push(from.file_name().unwrap());
 
-    if let Verbosity::Silent = config.verbosity {
-    } else {
+    if !config.verbosity.is_silent() {
         println!("{:?} => {:?}", from, to)
     }
 
@@ -139,16 +138,14 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
         match fs::rename(from, to) {
             Ok(_) => {
                 if config.undo {
-                    if let Verbosity::Silent = config.verbosity {
-                    } else {
+                    if !config.verbosity.is_silent() {
                         println!("Saving undo information.");
                     }
                 }
                 Ok(())
             }
             Err(reason) => {
-                if let Verbosity::Silent = config.verbosity {
-                } else {
+                if !config.verbosity.is_silent() {
                     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
                 }
                 Err(reason)
