@@ -19,11 +19,12 @@ pub fn state(
 }
 
 pub fn result(config: &crate::ocd::mrn::MassRenameConfig, buffer: &BTreeMap<PathBuf, PathBuf>) {
-    if !config.verbosity.is_silent() {
-        println!("Result:");
-        for (src, dst) in buffer {
-            println!("    {:?} => {:?}", src, dst)
-        }
+    if config.verbosity.is_silent() {
+        return;
+    }
+    println!("Result:");
+    for (src, dst) in buffer {
+        println!("---\n    {:?}\n    {:?}", src, dst)
     }
 }
 

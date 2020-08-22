@@ -274,101 +274,103 @@ fn apply_rules(
     let mut buffer = new_buffer(files);
 
     for rule in rules {
-        for mut path in buffer.values_mut() {
-            apply_rule(&rule, &mut path);
+        for (index, (_src, mut dst)) in buffer.iter_mut().enumerate() {
+            apply_rule(index, &rule, &mut dst);
         }
     }
-    crate::ocd::mrn::output::result(config, &buffer);
-    Ok(buffer)
+
+    let clean_buffer = clean_buffer(buffer);
+    crate::ocd::mrn::output::result(config, &clean_buffer);
+    Ok(clean_buffer)
 }
 
-fn apply_rule(rule: &Rule, path: &mut PathBuf) {
+fn apply_rule(index: usize, rule: &Rule, path: &mut PathBuf) {
     let filename = path.file_stem().unwrap();
     let filename = filename.to_str().unwrap();
     match rule {
         Rule::LowerCase => {
             let filename = apply_lower_case(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::UpperCase => {
             let filename = apply_upper_case(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::TitleCase => {
             let filename = apply_title_case(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::SentenceCase => {
             let filename = apply_sentence_case(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::CamelCaseJoin => {
             let filename = apply_camel_case_join(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::CamelCaseSplit => {
             let filename = apply_camel_case_split(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::Sanitize => {
             let filename = apply_sanitize(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::Replace { pattern, replace } => {
             let filename = apply_replace(filename, pattern, replace);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceSpaceDash => {
             let filename = apply_replace(filename, " ", "-");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceSpacePeriod => {
             let filename = apply_replace(filename, " ", ".");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceSpaceUnder => {
             let filename = apply_replace(filename, " ", "_");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceDashPeriod => {
             let filename = apply_replace(filename, "-", ".");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceDashSpace => {
             let filename = apply_replace(filename, "-", " ");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceDashUnder => {
             let filename = apply_replace(filename, "-", "_");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplacePeriodDash => {
             let filename = apply_replace(filename, ".", "-");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplacePeriodSpace => {
             let filename = apply_replace(filename, ".", " ");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplacePeriodUnder => {
             let filename = apply_replace(filename, ".", "_");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceUnderDash => {
             let filename = apply_replace(filename, "_", "-");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceUnderPeriod => {
             let filename = apply_replace(filename, "_", ".");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::ReplaceUnderSpace => {
             let filename = apply_replace(filename, "_", " ");
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::PatternMatch { pattern, replace } => {
-            let filename = apply_pattern_match(filename, pattern, replace);
-            buffer_rename(path, filename);
+            let filename = apply_pattern_match(index, filename, pattern, replace);
+            rename_file(path, filename);
         }
         Rule::ExtensionAdd { extension } => {
             path.set_extension(extension);
@@ -378,19 +380,19 @@ fn apply_rule(rule: &Rule, path: &mut PathBuf) {
         }
         Rule::Insert { text, position } => {
             let filename = apply_insert(filename, text, position);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::InteractiveTokenize => {
             let filename = apply_interactive_tokenize(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::InteractivePatternMatch => {
             let filename = apply_interactive_pattern_match(filename);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
         Rule::Delete { from, to } => {
             let filename = apply_delete(filename, *from, to);
-            buffer_rename(path, filename);
+            rename_file(path, filename);
         }
     }
 }
@@ -474,142 +476,196 @@ fn apply_replace(filename: &str, pattern: &str, replace: &str) -> String {
     filename.replace(pattern, replace)
 }
 
-fn apply_pattern_match(filename: &str, match_pattern: &str, replace_pattern: &str) -> String {
-    let match_pattern = String::from(match_pattern);
+fn apply_pattern_match(
+    _index: usize,
+    filename: &str,
+    match_pattern: &str,
+    replace_pattern: &str,
+) -> String {
+    fn month_to_number(month: &str) -> &str {
+        match month {
+            "jan" | "Jan" | "january" | "January" => "01",
+            "feb" | "Feb" | "february" | "February" => "02",
+            "mar" | "Mar" | "march" | "March" => "03",
+            "apr" | "Apr" | "april" | "April" => "04",
+            "may" | "May" => "05",
+            "jun" | "Jun" | "june" | "June" => "06",
+            "jul" | "Jul" | "july" | "July" => "07",
+            "aug" | "Aug" | "august" | "August" => "08",
+            "sep" | "Sep" | "september" | "September" => "09",
+            "oct" | "Oct" | "october" | "October" => "10",
+            "nov" | "Nov" | "november" | "November" => "11",
+            "dec" | "Dec" | "december" | "December" => "12",
+            unexpected => {
+                println!("Month: {}", unexpected);
+                panic!("Unknown month value!");
+            }
+        }
+    }
+
+    // println!("filename:        {:?}", filename);
+    // println!("match pattern:   {:?}", match_pattern);
+    // println!("replace pattern: {:?}", replace_pattern);
+
+    lazy_static! {
+        static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
+    }
+
+    let florbs: Vec<&str> = FLORB_REGEX
+        .captures_iter(&match_pattern)
+        .map(|c: regex::Captures| c.get(0).unwrap().as_str())
+        .collect();
+
+    // println!("florbs in match pattern: {:?}", florbs);
+    let mut match_pattern = String::from(match_pattern);
+    match_pattern.insert_str(0, "^");
+    match_pattern.push_str("$");
     let match_pattern = match_pattern.replace(".", r"\.");
     let match_pattern = match_pattern.replace("[", r"\[");
     let match_pattern = match_pattern.replace("]", r"\]");
     let match_pattern = match_pattern.replace("(", r"\(");
     let match_pattern = match_pattern.replace(")", r"\)");
     let match_pattern = match_pattern.replace("?", r"\?");
-    let match_pattern = match_pattern.replace("{#}", r"([0-9]*)");
-    let match_pattern = match_pattern.replace("{L}", r"([a-zA-Z]*)");
-    let match_pattern = match_pattern.replace("{C}", r"([\S]*)");
-    let match_pattern = match_pattern.replace("{X}", r"([\S\s]*)");
-    let match_pattern = match_pattern.replace("{@}", r"(.*)");
+    let match_pattern = match_pattern.replace("{A}", r"([[:alpha:]]*)"); // Alphabetic
+    let match_pattern = match_pattern.replace("{N}", r"([[:digit:]]*)"); // Digits
+    let match_pattern = match_pattern.replace("{X}", r"(.*)"); // Anything
+    let date_regex = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
+    let match_pattern = match_pattern.replace("{D}", date_regex); // Date
+    // println!("match pattern after replacement: {:?}", match_pattern);
 
-    println!("filename:        {:?}", filename);
-    println!("match pattern:   {:?}", match_pattern);
-    println!("replace pattern: {:?}", replace_pattern);
+    // TODO Replace data generators
+    // n = n.replace("{date}",      time.strftime("%Y-%m-%d", time.localtime()))
+    // n = n.replace("{year}",      time.strftime("%Y",       time.localtime()))
+    // n = n.replace("{month}",     time.strftime("%m",       time.localtime()))
+    // n = n.replace("{monthname}", time.strftime("%B",       time.localtime()))
+    // n = n.replace("{monthsimp}", time.strftime("%b",       time.localtime()))
+    // n = n.replace("{day}",       time.strftime("%d",       time.localtime()))
+    // n = n.replace("{dayname}",   time.strftime("%A",       time.localtime()))
+    // n = n.replace("{daysimp}",   time.strftime("%a",       time.localtime()))
 
-    let regex = Regex::new(&match_pattern).unwrap();
+    // TODO Replace random number generators
+    // # Replace {rand} with random number between 0 and 100.
+    // # If {rand500} the number will be between 0 and 500
+    // # If {rand10-20} the number will be between 10 and 20
+    // # If you add ,[ 5 the number will be padded with 5 digits
+    // # ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
+    // rnd = ""
+    // cr = re.compile("{(rand)([0-9]*)}"
+    //                 "|{(rand)([0-9]*)(\-)([0-9]*)}"
+    //                 "|{(rand)([0-9]*)(\,)([0-9]*)}"
+    //                 "|{(rand)([0-9]*)(\-)([0-9]*)(\,)([0-9]*)}")
+    // cg = cr.search(newname).groups()
+    // if len(cg) == 16:
+    //     if (cg[0] == "rand"):
+    //         if (cg[1] == ""):
+    //             # {rand}
+    //             rnd = random.randint(0, 100)
+    //         else:
+    //             # {rand2}
+    //             rnd = random.randint(0, int(cg[1]))
+    //     elif rand_case_1(cg):
+    //         # {rand10-100}
+    //         rnd = random.randint(int(cg[3]), int(cg[5]))
+    //     elif rand_case_2(cg):
+    //         if (cg[7] == ""):
+    //             # {rand,2}
+    //             rnd = str(random.randint(0, 100)).zfill(int(cg[9]))
+    //         else:
+    //             # {rand10,2}
+    //             rnd = str(random.randint(0, int(cg[7]))).zfill(int(cg[9]))
+    //     elif rand_case_3(cg):
+    //         # {rand2-10,3}
+    //         s = str(random.randint(int(cg[11]), int(cg[13])))
+    //         rnd = s.zfill(int(cg[15]))
+    // newname = cr.sub(str(rnd), newname)
 
-    let captures = regex.captures_iter(filename);
-    let mut replace_pattern = String::from(replace_pattern);
-    for capture in captures {
-        let matches: Vec<Option<regex::Match>> = capture.iter().skip(1).collect();
-        println!("    matches:   {:?}\n", matches);
-        for (i, _m) in matches.iter().enumerate() {
-            let mark = format!("{{{}}}", i + 1);
-            println!("    mark:   {:?}", mark);
-            let content = matches.get(i).unwrap().unwrap().as_str();
-            println!("    before: {:?}", replace_pattern);
-            replace_pattern = replace_pattern.replace(&mark, &content);
-            println!("    after:  {:?}\n", replace_pattern);
+    // TODO Replace sequential number generators
+    // # Replace {num} with item number.
+    // # If {num2} the number will be 02
+    // # If {num3+10} the number will be 010
+    // count = str(count)
+    // cr = re.compile("{(num)([0-9]*)}|{(num)([0-9]*)(\+)([0-9]*)}")
+    // cg = cr.search(newname).groups()
+    // if len(cg) == 6:
+    //     if cg[0] == "num":
+    //         # {num2}
+    //         if cg[1] != "":
+    //             count = count.zfill(int(cg[1]))
+    //         newname = cr.sub(count, newname)
+    //     elif cg[2] == "num" and cg[4] == "+":
+    //         # {num2+5}
+    //         if cg[5] != "":
+    //             count = str(int(count)+int(cg[5]))
+    //         if cg[3] != "":
+    //             count = count.zfill(int(cg[3]))
+    // newname = cr.sub(count, newname)
+
+    let match_regex = Regex::new(&match_pattern).unwrap();
+    match match_regex.captures(&filename) {
+        None => {
+            println!("No match on {:?}", filename);
+            String::from(filename)
+        }
+        Some(capture) => {
+            let mut replace_pattern = replace_pattern.to_string();
+            let mut ci = 1;
+            for (fi, f) in florbs.iter().enumerate() {
+                let mark = format!("{{{}}}", fi + 1);
+                match *f {
+                    "{A}" | "{N}" | "{X}" => {
+                        let content = capture.get(ci).unwrap().as_str();
+                        replace_pattern = replace_pattern.replace(&mark, &content);
+                        ci += 1;
+                    }
+                    "{D}" => {
+                        lazy_static! {
+                            // This regex recognizes human-readable dates and its subparts
+                            static ref IOS_DATE_FORMAT_REGEX: Regex = Regex::new(r"(?i)(?P<d>\d{1,2})\s(?P<m>January|February|March|April|May|June|July|August|September|October|November|December)\s(?P<y>\d{1,4})").unwrap();
+                        }
+                        // println!("  capture: {:?}", capture);
+                        // println!("  ci: {}", ci);
+                        let date_text = capture.get(ci).unwrap().as_str();
+                        // println!("  date_text: {:?}", date_text);
+                        let date_capture = IOS_DATE_FORMAT_REGEX.captures(date_text).unwrap();
+                        // println!("  date_capture: {:?}", date_capture);
+                        let day_text = format!(
+                            "{:02}",
+                            date_capture
+                                .name("d")
+                                .unwrap()
+                                .as_str()
+                                .parse::<u32>()
+                                .unwrap()
+                        );
+                        let month_text = month_to_number(date_capture.name("m").unwrap().as_str());
+                        let year_text = format!(
+                            "{:02}",
+                            date_capture
+                                .name("y")
+                                .unwrap()
+                                .as_str()
+                                .parse::<u32>()
+                                .unwrap()
+                        );
+                        // let content = date_capture.get(ci).unwrap().as_str();
+                        let mut content = String::new();
+                        content.push_str(&year_text);
+                        content.push_str("-");
+                        content.push_str(&month_text);
+                        content.push_str("-");
+                        content.push_str(&day_text);
+                        // println!("  content: {:?}", content);
+                        replace_pattern = replace_pattern.replace(&mark, &content);
+                        ci += 1;
+                    }
+                    _ => {
+                        panic!("Unrecognized florb!");
+                    }
+                }
+            }
+            replace_pattern
         }
     }
-    replace_pattern
-    /*
-    def process_pattern_match(name, pattern_ini, pattern_end, count):
-        pattern = pattern_ini
-        pattern = pattern.replace(".", "\.")
-        pattern = pattern.replace("[", "\[")
-        pattern = pattern.replace("]", "\]")
-        pattern = pattern.replace("(", "\(")
-        pattern = pattern.replace(")", "\)")
-        pattern = pattern.replace("?", "\?")
-        pattern = pattern.replace("{#}", "([0-9]*)")
-        pattern = pattern.replace("{L}", "([a-zA-Z]*)")
-        pattern = pattern.replace("{C}", "([\S]*)")
-        pattern = pattern.replace("{X}", "([\S\s]*)")
-        pattern = pattern.replace("{@}", "(.*)")
-        repattern = re.compile(pattern)
-        newname = pattern_end
-        try:
-            search = repattern.search(name)
-            if search:
-                groups = search.groups()
-                for i in range(len(groups)):
-                    newname = newname.replace("{" + str(i+1) + "}", groups[i])
-            else:
-                return None
-        except Exception as e:
-            return None
-
-        # Replace {num} with item number.
-        # If {num2} the number will be 02
-        # If {num3+10} the number will be 010
-        count = str(count)
-        cr = re.compile("{(num)([0-9]*)}|{(num)([0-9]*)(\+)([0-9]*)}")
-        try:
-            cg = cr.search(newname).groups()
-            if len(cg) == 6:
-                if cg[0] == "num":
-                    # {num2}
-                    if cg[1] != "":
-                        count = count.zfill(int(cg[1]))
-                    newname = cr.sub(count, newname)
-                elif cg[2] == "num" and cg[4] == "+":
-                    # {num2+5}
-                    if cg[5] != "":
-                        count = str(int(count)+int(cg[5]))
-                    if cg[3] != "":
-                        count = count.zfill(int(cg[3]))
-            newname = cr.sub(count, newname)
-        except:
-            pass
-
-        # Some date replacements
-        n = newname
-        n = n.replace("{date}",      time.strftime("%Y-%m-%d", time.localtime()))
-        n = n.replace("{year}",      time.strftime("%Y",       time.localtime()))
-        n = n.replace("{month}",     time.strftime("%m",       time.localtime()))
-        n = n.replace("{monthname}", time.strftime("%B",       time.localtime()))
-        n = n.replace("{monthsimp}", time.strftime("%b",       time.localtime()))
-        n = n.replace("{day}",       time.strftime("%d",       time.localtime()))
-        n = n.replace("{dayname}",   time.strftime("%A",       time.localtime()))
-        n = n.replace("{daysimp}",   time.strftime("%a",       time.localtime()))
-        newname = n
-
-        # Replace {rand} with random number between 0 and 100.
-        # If {rand500} the number will be between 0 and 500
-        # If {rand10-20} the number will be between 10 and 20
-        # If you add ,[ 5 the number will be padded with 5 digits
-        # ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
-        rnd = ""
-        cr = re.compile("{(rand)([0-9]*)}"
-                        "|{(rand)([0-9]*)(\-)([0-9]*)}"
-                        "|{(rand)([0-9]*)(\,)([0-9]*)}"
-                        "|{(rand)([0-9]*)(\-)([0-9]*)(\,)([0-9]*)}")
-        try:
-            cg = cr.search(newname).groups()
-            if len(cg) == 16:
-                if (cg[0] == "rand"):
-                    if (cg[1] == ""):
-                        # {rand}
-                        rnd = random.randint(0, 100)
-                    else:
-                        # {rand2}
-                        rnd = random.randint(0, int(cg[1]))
-                elif rand_case_1(cg):
-                    # {rand10-100}
-                    rnd = random.randint(int(cg[3]), int(cg[5]))
-                elif rand_case_2(cg):
-                    if (cg[7] == ""):
-                        # {rand,2}
-                        rnd = str(random.randint(0, 100)).zfill(int(cg[9]))
-                    else:
-                        # {rand10,2}
-                        rnd = str(random.randint(0, int(cg[7]))).zfill(int(cg[9]))
-                elif rand_case_3(cg):
-                    # {rand2-10,3}
-                    s = str(random.randint(int(cg[11]), int(cg[13])))
-                    rnd = s.zfill(int(cg[15]))
-            newname = cr.sub(str(rnd), newname)
-        except:
-            pass
-        return newname
-    */
 }
 
 fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
@@ -723,7 +779,15 @@ fn new_buffer(files: &[PathBuf]) -> BTreeMap<PathBuf, PathBuf> {
     buffer
 }
 
-fn buffer_rename(path: &mut PathBuf, filename: String) {
+fn clean_buffer(dirty_buffer: BTreeMap<PathBuf, PathBuf>) -> BTreeMap<PathBuf, PathBuf> {
+    let mut buffer = BTreeMap::new();
+    for (src, dst) in dirty_buffer.iter().filter(|(src, dst)| src != dst) {
+        buffer.insert(src.clone(), dst.clone());
+    }
+    buffer
+}
+
+fn rename_file(path: &mut PathBuf, filename: String) {
     let extension = match path.extension() {
         None => String::new(),
         Some(extension) => String::from(extension.to_str().unwrap()),
@@ -823,8 +887,18 @@ mod test {
         apply_replace("aa_bb_cc_dd", "_", ".") => "aa.bb.cc.dd");
     t!(replace_under_space_test:
         apply_replace("aa_bb_cc_dd", "_", " ") => "aa bb cc dd");
-    t!(pattern_match_test:
-        apply_pattern_match("aa bb", "{X} {X}", "{2} {1}") => "bb aa");
+    t!(pattern_match_test_1:
+        apply_pattern_match(0, "aa bb", "{X} {X}", "{2} {1}") => "bb aa");
+    t!(pattern_match_test_2:
+        apply_pattern_match(0, "Dave Brubeck - 01. Take five", "{X} - {N}. {X}", "{1} {2} {3}") => "Dave Brubeck 01 Take five");
+    t!(pattern_match_test_3:
+        apply_pattern_match(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{1} {2}") => "Bahia Blanca 2019-10-21");
+    t!(pattern_match_test_4:
+        apply_pattern_match(0, "Foo 123 B_a_r", "{A} {N} {X}", "{3} {2} {1}") => "B_a_r 123 Foo");
+    t!(pattern_match_test_5:
+        apply_pattern_match(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{2} {1}") => "2019-10-21 Bahia Blanca");
+    t!(pattern_match_test_6:
+        apply_pattern_match(0, "Bahia Blanca, 21 October 2019, FooBarBaz", "{X}, {D}, {X}", "{2} {1} {3}") => "2019-10-21 Bahia Blanca FooBarBaz");
     t!(insert_test_1:
         apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
     t!(insert_test_2:
