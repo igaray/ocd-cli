@@ -96,16 +96,12 @@ impl Tokenizer {
         }
     }
 
-    pub fn run(
-        &mut self,
-        config: &MassRenameConfig,
-        input: &str,
-    ) -> Result<Vec<Token>, &'static str> {
+    pub fn run(&mut self, config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
         for c in input.chars() {
             match self.state {
                 TokenizerState::Init => self.state_init(config, c, &mut tokens),
-                TokenizerState::Error => return Err("Lexer error"),
+                TokenizerState::Error => return Err(String::from("Lexer error")),
                 TokenizerState::Comma => self.state_comma(config, c, &mut tokens),
                 TokenizerState::Space => self.state_space(config, c, &mut tokens),
                 TokenizerState::String => self.state_string(config, c, &mut tokens),
@@ -159,7 +155,12 @@ impl Tokenizer {
                 Ok(value) => {
                     tokens.push(Token::Number { value });
                 }
-                Err(_err) => return Err("Error: unable to read number"),
+                Err(err) => {
+                    return Err(String::from(format!(
+                        "Error: unable to read number: {:?}",
+                        err
+                    )))
+                }
             },
             TokenizerState::CCJ => {
                 tokens.push(Token::CamelCaseJoin);
@@ -243,15 +244,15 @@ impl Tokenizer {
             TokenizerState::US => {
                 tokens.push(Token::ReplaceUnderSpace);
             }
-            TokenizerState::String => return Err("Error: unfinished string"),
-            TokenizerState::C => return Err("Error: unfinished rule, read: 'c'"),
-            TokenizerState::CC => return Err("Error: unfinished rule, read: 'cc'"),
-            TokenizerState::E => return Err("Error: unfinished rule, read: 'e'"),
-            TokenizerState::EN => return Err("Error: unfinished end"),
-            TokenizerState::L => return Err("Error: unfinished rule, read: 'l'"),
-            TokenizerState::T => return Err("Error: unfinished rule, read: 't'"),
-            TokenizerState::U => return Err("Error: unfinished rule, read: 'u'"),
-            TokenizerState::Error => return Err("Error while reading input"),
+            TokenizerState::String => return Err(String::from("Error: unfinished string")),
+            TokenizerState::C => return Err(String::from("Error: unfinished rule, read: 'c'")),
+            TokenizerState::CC => return Err(String::from("Error: unfinished rule, read: 'cc'")),
+            TokenizerState::E => return Err(String::from("Error: unfinished rule, read: 'e'")),
+            TokenizerState::EN => return Err(String::from("Error: unfinished end")),
+            TokenizerState::L => return Err(String::from("Error: unfinished rule, read: 'l'")),
+            TokenizerState::T => return Err(String::from("Error: unfinished rule, read: 't'")),
+            TokenizerState::U => return Err(String::from("Error: unfinished rule, read: 'u'")),
+            TokenizerState::Error => return Err(String::from("Error while reading input")),
         }
         Ok(tokens)
     }
@@ -853,7 +854,7 @@ impl Tokenizer {
     }
 }
 
-pub fn tokenize(config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, &'static str> {
+pub fn tokenize(config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, String> {
     Tokenizer::new().run(config, input)
 }
 

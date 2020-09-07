@@ -47,7 +47,7 @@ impl Config {
         }
     }
 
-    pub fn with_args(&self) -> Result<Config, &'static str> {
+    pub fn with_args(&self) -> Result<Config, String> {
         let yaml = load_yaml!("config.yaml");
         let app = clap::App::from_yaml(yaml);
         let ocd_matches = app.get_matches();
@@ -69,8 +69,8 @@ impl Config {
                 let config = Config { subcommand };
                 Ok(config)
             }
-            (_, Some(_)) => Err("Unknown command supplied."),
-            _ => Err("No command supplied."),
+            (_, Some(_)) => Err(String::from("Unknown command supplied.")),
+            _ => Err(String::from("No command supplied.")),
         }
     }
 }

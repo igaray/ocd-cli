@@ -4,7 +4,7 @@ use crate::ocd::mrn::{Position, Rule};
 pub fn parse(
     _config: &crate::ocd::mrn::MassRenameConfig,
     tokens: &[crate::ocd::mrn::lexer::Token],
-) -> Result<Vec<Rule>, &'static str> {
+) -> Result<Vec<Rule>, String> {
     let mut rules = Vec::new();
     match tokens.len() {
         0 => Ok(rules),
@@ -12,7 +12,7 @@ pub fn parse(
             parse_rules(&tokens[0], &[], &mut rules)?;
             Ok(rules)
         }
-        2 => Err("Error: unexpected token"),
+        2 => Err(String::from("Error: unexpected token")),
         _ => {
             parse_rules(&tokens[0], &tokens[1..], &mut rules)?;
             Ok(rules)
@@ -24,17 +24,17 @@ fn parse_rules<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     let tokens = parse_rule(token, tokens, rules)?;
     match tokens.len() {
         0 => Ok(tokens),
-        1 => Err("Syntax error: unexpected token"),
+        1 => Err(String::from("Syntax error: unexpected token")),
         _ => match tokens[0] {
             Token::Comma => {
                 let tokens = parse_rules(&tokens[1], &tokens[2..], rules)?;
                 Ok(tokens)
             }
-            _ => Err("Syntax error: unexpected token"),
+            _ => Err(String::from("Syntax error: unexpected token")),
         },
     }
 }
@@ -43,13 +43,17 @@ fn parse_rule<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match *token {
-        Token::Comma => return Err("Syntax error: unexpected comma"),
-        Token::Space => return Err("Syntax error: unexpected space"),
-        Token::End => return Err("Syntax error: unexpected end keyword"),
-        Token::String { value: ref _value } => return Err("Syntax error: unexpected string"),
-        Token::Number { value: _value } => return Err("Syntax error: unexpected number"),
+        Token::Comma => return Err(String::from("Syntax error: unexpected comma")),
+        Token::Space => return Err(String::from("Syntax error: unexpected space")),
+        Token::End => return Err(String::from("Syntax error: unexpected end keyword")),
+        Token::String { value: ref _value } => {
+            return Err(String::from("Syntax error: unexpected string"))
+        }
+        Token::Number { value: _value } => {
+            return Err(String::from("Syntax error: unexpected number"))
+        }
         Token::LowerCase => {
             rules.push(Rule::LowerCase);
         }
@@ -69,7 +73,11 @@ fn parse_rule<'a, 'b>(
             rules.push(Rule::CamelCaseSplit);
         }
         Token::ExtensionAdd => match tokens.len() {
-            0 => return Err("Syntax error: insufficient parameters for extension add"),
+            0 => {
+                return Err(String::from(
+                    "Syntax error: insufficient parameters for extension add",
+                ))
+            }
             _ => {
                 let tokens = parse_extension_add(&tokens[0], &tokens[1..], rules)?;
                 return Ok(tokens);
@@ -80,7 +88,9 @@ fn parse_rule<'a, 'b>(
         }
         Token::PatternMatch => {
             if tokens.is_empty() {
-                return Err("Syntax error: insufficient parameters for pattern match");
+                return Err(String::from(
+                    "Syntax error: insufficient parameters for pattern match",
+                ));
             } else {
                 let tokens = parse_pattern_match(&tokens[0], &tokens[1..], rules)?;
                 return Ok(tokens);
@@ -88,7 +98,9 @@ fn parse_rule<'a, 'b>(
         }
         Token::Insert => {
             if tokens.is_empty() {
-                return Err("Syntax error: insufficient parameters for insert");
+                return Err(String::from(
+                    "Syntax error: insufficient parameters for insert",
+                ));
             } else {
                 let tokens = parse_insert(&tokens[0], &tokens[1..], rules)?;
                 return Ok(tokens);
@@ -102,7 +114,9 @@ fn parse_rule<'a, 'b>(
         }
         Token::Delete => {
             if tokens.is_empty() {
-                return Err("Syntax error: insufficient parameters for delete");
+                return Err(String::from(
+                    "Syntax error: insufficient parameters for delete",
+                ));
             } else {
                 let tokens = parse_delete(&tokens[0], &tokens[1..], rules)?;
                 return Ok(tokens);
@@ -110,7 +124,9 @@ fn parse_rule<'a, 'b>(
         }
         Token::Replace => {
             if tokens.is_empty() {
-                return Err("Syntax error: insufficient parameters for replace");
+                return Err(String::from(
+                    "Syntax error: insufficient parameters for replace",
+                ));
             } else {
                 let tokens = parse_replace(&tokens[0], &tokens[1..], rules)?;
                 return Ok(tokens);
@@ -163,11 +179,11 @@ fn parse_pattern_match<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match token {
         Token::Space => {
             if tokens.is_empty() {
-                Err("Syntax error: pattern match expected a space")
+                Err(String::from("Syntax error: pattern match expected a space"))
             } else {
                 match &tokens[0] {
                     Token::String {
@@ -175,13 +191,17 @@ fn parse_pattern_match<'a, 'b>(
                     } => {
                         let tokens = &tokens[1..];
                         if tokens.is_empty() {
-                            Err("Syntax error: pattern match expected a space after the pattern")
+                            Err(String::from(
+                                "Syntax error: pattern match expected a space after the pattern",
+                            ))
                         } else {
                             match &tokens[0] {
                                 Token::Space => {
                                     let tokens = &tokens[1..];
                                     if tokens.is_empty() {
-                                        Err("Synatx error: pattern match expected a second string")
+                                        Err(String::from(
+                                            "Synatx error: pattern match expected a second string",
+                                        ))
                                     } else {
                                         match &tokens[0] {
                       Token::String{value: ref replace_pattern} => {
@@ -190,21 +210,21 @@ fn parse_pattern_match<'a, 'b>(
                         rules.push(Rule::PatternMatch{pattern: mp, replace: rp});
                         Ok(&tokens[1..])
                       },
-                      _ => Err("Syntax error: pattern match expected a second string")
+                      _ => Err(String::from("Syntax error: pattern match expected a second string"))
                     }
                                     }
                                 }
-                                _ => Err(
+                                _ => Err(String::from(
                                     "Syntax error: pattern match expected a space between patterns",
-                                ),
+                                )),
                             }
                         }
                     }
-                    _ => Err("Syntax error: pattern expected string"),
+                    _ => Err(String::from("Syntax error: pattern expected string")),
                 }
             }
         }
-        _ => Err("Syntax error: expected space"),
+        _ => Err(String::from("Syntax error: expected space")),
     }
 }
 
@@ -212,11 +232,13 @@ fn parse_extension_add<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match token {
         Token::Space => {
             if tokens.is_empty() {
-                Err("Syntax error: extensinon add expected a string")
+                Err(String::from(
+                    "Syntax error: extensinon add expected a string",
+                ))
             } else {
                 match tokens[0] {
                     Token::String {
@@ -226,11 +248,13 @@ fn parse_extension_add<'a, 'b>(
                         rules.push(Rule::ExtensionAdd { extension });
                         Ok(&tokens[1..])
                     }
-                    _ => Err("Syntax error: extension add expected a string"),
+                    _ => Err(String::from(
+                        "Syntax error: extension add expected a string",
+                    )),
                 }
             }
         }
-        _ => Err("Syntax error: extension add expected a space"),
+        _ => Err(String::from("Syntax error: extension add expected a space")),
     }
 }
 
@@ -238,23 +262,25 @@ fn parse_insert<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match token {
         Token::Space => {
             if tokens.is_empty() {
-                Err("Syntax error: insert expected a string")
+                Err(String::from("Syntax error: insert expected a string"))
             } else {
                 match tokens[0] {
                     Token::String { value: ref text } => {
                         let tokens = &tokens[1..];
                         if tokens.is_empty() {
-                            Err("Synatx error: insert expected a space")
+                            Err(String::from("Syntax error: insert expected a space"))
                         } else {
                             match tokens[0] {
                                 Token::Space => {
                                     let tokens = &tokens[1..];
                                     if tokens.is_empty() {
-                                        Err("Syntax error: insert expected an index or end keyword")
+                                        Err(String::from(
+                                            "Syntax error: insert expected an index or end keyword",
+                                        ))
                                     } else {
                                         match &tokens[0] {
                       Token::End => {
@@ -265,19 +291,19 @@ fn parse_insert<'a, 'b>(
                         rules.push(Rule::Insert{text: text.to_string(), position: Position::Index{value: position}});
                         Ok(&tokens[1..])
                       },
-                      _ => Err("Syntax error: insert expected an index or end keyword")
+                      _ => Err(String::from("Syntax error: insert expected an index or end keyword"))
                     }
                                     }
                                 }
-                                _ => Err("Syntax error: inssert expected a space"),
+                                _ => Err(String::from("Syntax error: inssert expected a space")),
                             }
                         }
                     }
-                    _ => Err("Syntax error: insert expected a string"),
+                    _ => Err(String::from("Syntax error: insert expected a string")),
                 }
             }
         }
-        _ => Err("Syntax error: insert expected a space"),
+        _ => Err(String::from("Syntax error: insert expected a space")),
     }
 }
 
@@ -285,23 +311,27 @@ fn parse_delete<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match token {
         Token::Space => {
             if tokens.is_empty() {
-                Err("Syntax error: delete expected an index number")
+                Err(String::from(
+                    "Syntax error: delete expected an index number",
+                ))
             } else {
                 match tokens[0] {
                     Token::Number { value: from } => {
                         let tokens = &tokens[1..];
                         if tokens.is_empty() {
-                            Err("Syntax error: delete expected a space")
+                            Err(String::from("Syntax error: delete expected a space"))
                         } else {
                             match tokens[0] {
                                 Token::Space => {
                                     let tokens = &tokens[1..];
                                     if tokens.is_empty() {
-                                        Err("Syntax error: delete expected a position")
+                                        Err(String::from(
+                                            "Syntax error: delete expected a position",
+                                        ))
                                     } else {
                                         match &tokens[0] {
                       Token::End => {
@@ -312,19 +342,21 @@ fn parse_delete<'a, 'b>(
                         rules.push(Rule::Delete{from, to: Position::Index{value: to}});
                         Ok(&tokens[1..])
                       },
-                      _ => Err("Syntax error: delete expected either end of an index number")
+                      _ => Err(String::from("Syntax error: delete expected either end of an index number"))
                     }
                                     }
                                 }
-                                _ => Err("Syntax error: delete expected a space"),
+                                _ => Err(String::from("Syntax error: delete expected a space")),
                             }
                         }
                     }
-                    _ => Err("Syntax error: delete expected an index number"),
+                    _ => Err(String::from(
+                        "Syntax error: delete expected an index number",
+                    )),
                 }
             }
         }
-        _ => Err("Syntax error: delete expected a space"),
+        _ => Err(String::from("Syntax error: delete expected a space")),
     }
 }
 
@@ -332,23 +364,25 @@ fn parse_replace<'a, 'b>(
     token: &Token,
     tokens: &'a [Token],
     rules: &'b mut Vec<Rule>,
-) -> Result<&'a [Token], &'static str> {
+) -> Result<&'a [Token], String> {
     match token {
         Token::Space => {
             if tokens.is_empty() {
-                Err("Syntax error: replace expected a string")
+                Err(String::from("Syntax error: replace expected a string"))
             } else {
                 match tokens[0] {
                     Token::String { value: ref string1 } => {
                         let tokens = &tokens[1..];
                         if tokens.is_empty() {
-                            Err("Syntax error: replace expected a space")
+                            Err(String::from("Syntax error: replace expected a space"))
                         } else {
                             match tokens[0] {
                                 Token::Space => {
                                     let tokens = &tokens[1..];
                                     if tokens.is_empty() {
-                                        Err("Syntax error: replace expected a second string")
+                                        Err(String::from(
+                                            "Syntax error: replace expected a second string",
+                                        ))
                                     } else {
                                         match tokens[0] {
                                             Token::String { value: ref string2 } => {
@@ -357,21 +391,21 @@ fn parse_replace<'a, 'b>(
                                                 rules.push(Rule::Replace { pattern, replace });
                                                 Ok(&tokens[1..])
                                             }
-                                            _ => Err(
+                                            _ => Err(String::from(
                                                 "Syntax error: replace expected a second string",
-                                            ),
+                                            )),
                                         }
                                     }
                                 }
-                                _ => Err("Syntax error: replace expected a space"),
+                                _ => Err(String::from("Syntax error: replace expected a space")),
                             }
                         }
                     }
-                    _ => Err("Syntax error: replace expected a string"),
+                    _ => Err(String::from("Syntax error: replace expected a string")),
                 }
             }
         }
-        _ => Err("Syntax error: replace expected a space"),
+        _ => Err(String::from("Syntax error: replace expected a space")),
     }
 }
 

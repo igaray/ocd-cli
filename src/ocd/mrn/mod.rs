@@ -117,7 +117,7 @@ impl MassRenameConfig {
     }
 }
 
-pub fn run(config: &MassRenameConfig) -> Result<(), &str> {
+pub fn run(config: &MassRenameConfig) -> Result<(), String> {
     let rules_raw = config.rules_raw.clone().unwrap();
     let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
     let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
@@ -132,13 +132,12 @@ pub fn run(config: &MassRenameConfig) -> Result<(), &str> {
     }
 
     if config.yes || user_confirm() {
-        execute_rules(&config, &buffer)
-    } else {
-        Ok(())
+        execute_rules(&config, &buffer)?
     }
+    Ok(())
 }
 
-fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
+fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
     /*
     recurse | glob | mode
     F       | none | f
@@ -166,11 +165,21 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(_err) => return Err("Error while listing files"),
+                        Err(err) => {
+                            return Err(String::from(format!(
+                                "Error while listing files: {:?}",
+                                err
+                            )))
+                        }
                     }
                 }
             }
-            Err(_err) => return Err("Error while listing files"),
+            Err(err) => {
+                return Err(String::from(format!(
+                    "Error while listing files: {:?}",
+                    err
+                )))
+            }
         },
         (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -181,11 +190,16 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(_err) => return Err("Error while listing files"),
+                        Err(err) => {
+                            return Err(String::from(format!(
+                                "Error while listing files: {:?}",
+                                err
+                            )))
+                        }
                     }
                 }
             }
-            Err(_err) => return Err("Error while listing files"),
+            Err(err) => return Err(String::from(format!("Error while listing files: {:?}", err))),
         },
         (false, None, Mode::All) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -194,11 +208,11 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
                         Ok(file) => {
                             entries_vec.push(file.path());
                         }
-                        Err(_err) => return Err("Error while listing files"),
+                        Err(_err) => return Err(String::from("Error while listing files")),
                     }
                 }
             }
-            Err(_err) => return Err("Error while listing files"),
+            Err(_err) => return Err(String::from("Error while listing files")),
         },
         (true, None, Mode::Files) => {
             let iter = WalkDir::new(&config.dir).into_iter();
@@ -209,7 +223,7 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
                             entries_vec.push(entry.path().to_path_buf());
                         }
                     }
-                    Err(_err) => return Err("Error listing files"),
+                    Err(_err) => return Err(String::from("Error listing files")),
                 }
             }
         }
@@ -222,7 +236,7 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, &'static str> {
                             entries_vec.push(entry.path().to_path_buf());
                         }
                     }
-                    Err(_err) => return Err("Error listing files"),
+                    Err(_err) => return Err(String::from("Error listing files")),
                 }
             }
         }
@@ -270,7 +284,7 @@ fn apply_rules(
     config: &MassRenameConfig,
     rules: &[Rule],
     files: &[PathBuf],
-) -> Result<BTreeMap<PathBuf, PathBuf>, &'static str> {
+) -> Result<BTreeMap<PathBuf, PathBuf>, String> {
     let mut buffer = new_buffer(files);
 
     for rule in rules {
@@ -672,6 +686,7 @@ fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     let mut new = String::from(filename);
     match position {
         Position::End => new.push_str(text),
+        Position::Index { value: index } if index >= &new.len() => new.push_str(text),
         Position::Index { value: index } => new.insert_str(*index, text),
     }
     new
@@ -745,7 +760,7 @@ fn create_undo_script(config: &MassRenameConfig, buffer: &BTreeMap<PathBuf, Path
 fn execute_rules(
     config: &MassRenameConfig,
     buffer: &BTreeMap<PathBuf, PathBuf>,
-) -> Result<(), &'static str> {
+) -> Result<(), String> {
     for (src, dst) in buffer {
         crate::ocd::mrn::output::file_move(config, src, dst);
         if !config.dryrun {
@@ -762,7 +777,7 @@ fn execute_rules(
                     Ok(_) => {}
                     Err(reason) => {
                         eprintln!("Error moving file: {:?}", reason);
-                        return Err("Error moving file.");
+                        return Err(String::from("Error moving file."));
                     }
                 }
             }

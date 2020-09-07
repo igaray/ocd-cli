@@ -38,7 +38,7 @@ impl TimeStampSortConfig {
     }
 }
 
-pub fn run(config: &TimeStampSortConfig) -> Result<(), &str> {
+pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
     for entry in WalkDir::new(&config.dir) {
         process_entry(config, &entry.unwrap().path())
     }
