@@ -44,12 +44,10 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
     }
 
     if !config.dryrun && config.undo {
-        if !config.verbosity.is_silent() {
-            println!("Creating undo script.");
-        }
+        crate::ocd::output::undo_script(config.verbosity);
         // TODO: implement undo
     }
-    Ok(())
+    Ok(()) // TODO change this so that it can return the error if something goes wrong.
 }
 
 fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
@@ -59,19 +57,14 @@ fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
                 Ok(_) => match move_file(config, &entry, &destination) {
                     Ok(_) => {}
                     Err(reason) => {
-                        if !config.verbosity.is_silent() {
-                            println!("Error moving file {:?}, reason: {:?}", entry, reason);
-                        }
+                        crate::ocd::output::file_move_error(config.verbosity, entry, &reason);
                     }
                 },
-                Err(reason) => {
-                    if !config.verbosity.is_silent() {
-                        println!(
-                            "Unable to create directory {:?}, reason: {:?}",
-                            destination, reason
-                        );
-                    }
-                }
+                Err(reason) => crate::ocd::output::create_directory_error(
+                    config.verbosity,
+                    destination,
+                    &reason,
+                ),
             }
         }
     }
@@ -81,7 +74,6 @@ fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
     // let file = std::fs::File::open(file_name).unwrap();
     // let reader = exif::Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
     // for f in reader.fields() {
-    //     println!("{} {} {}",
     //     f.tag, f.thumbnail, f.value.display_as(f.tag));
     // }
     file_name
@@ -108,14 +100,16 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
     if !config.dryrun {
         let mut full_path = PathBuf::new();
         full_path.push(directory);
-        match fs::create_dir(full_path) {
+        match fs::create_dir(&full_path) {
             Ok(_) => Ok(()),
             Err(reason) => match reason.kind() {
                 io::ErrorKind::AlreadyExists => Ok(()),
                 _ => {
-                    if !config.verbosity.is_silent() {
-                        println!("Error: directory could not be created: {:?}", reason.kind());
-                    }
+                    crate::ocd::output::create_directory_error(
+                        config.verbosity,
+                        full_path,
+                        &reason,
+                    );
                     Err(reason)
                 }
             },
@@ -130,24 +124,18 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
     to.push(dest);
     to.push(from.file_name().unwrap());
 
-    if !config.verbosity.is_silent() {
-        println!("{:?} => {:?}", from, to)
-    }
+    crate::ocd::output::file_move(config.verbosity, from, &to);
 
     if !config.dryrun {
         match fs::rename(from, to) {
             Ok(_) => {
                 if config.undo {
-                    if !config.verbosity.is_silent() {
-                        println!("Saving undo information.");
-                    }
+                    // TODO implement undo script
                 }
                 Ok(())
             }
             Err(reason) => {
-                if !config.verbosity.is_silent() {
-                    println!("Error: file {:?} could not be renamed: {:?}", from, reason);
-                }
+                crate::ocd::output::rename_error(config.verbosity, from, &reason);
                 Err(reason)
             }
         }

@@ -3,9 +3,8 @@ extern crate dialoguer;
 extern crate glob;
 extern crate walkdir;
 
-mod lexer;
-mod output;
-mod parser;
+pub mod lexer;
+pub mod parser;
 
 use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
@@ -123,7 +122,7 @@ pub fn run(config: &MassRenameConfig) -> Result<(), String> {
     let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
     let files = entries(&config)?;
 
-    crate::ocd::mrn::output::state(config, &tokens, &rules, &files);
+    crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
 
     let buffer = apply_rules(&config, &rules, &files)?;
 
@@ -166,19 +165,19 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                             }
                         }
                         Err(err) => {
-                            return Err(String::from(format!(
+                            return Err(format!(
                                 "Error while listing files: {:?}",
                                 err
-                            )))
+                            ))
                         }
                     }
                 }
             }
             Err(err) => {
-                return Err(String::from(format!(
+                return Err(format!(
                     "Error while listing files: {:?}",
                     err
-                )))
+                ))
             }
         },
         (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
@@ -191,15 +190,20 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                             }
                         }
                         Err(err) => {
-                            return Err(String::from(format!(
+                            return Err(format!(
                                 "Error while listing files: {:?}",
                                 err
-                            )))
+                            ))
                         }
                     }
                 }
             }
-            Err(err) => return Err(String::from(format!("Error while listing files: {:?}", err))),
+            Err(err) => {
+                return Err(format!(
+                    "Error while listing files: {:?}",
+                    err
+                ))
+            }
         },
         (false, None, Mode::All) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -294,7 +298,7 @@ fn apply_rules(
     }
 
     let clean_buffer = clean_buffer(buffer);
-    crate::ocd::mrn::output::result(config, &clean_buffer);
+    crate::ocd::output::mrn_result(config.verbosity, &clean_buffer);
     Ok(clean_buffer)
 }
 
@@ -511,15 +515,17 @@ fn apply_pattern_match(
             "nov" | "Nov" | "november" | "November" => "11",
             "dec" | "Dec" | "december" | "December" => "12",
             unexpected => {
-                println!("Month: {}", unexpected);
-                panic!("Unknown month value!");
+                panic!(format!("Unknown month value! {}", unexpected));
             }
         }
     }
 
-    // println!("filename:        {:?}", filename);
-    // println!("match pattern:   {:?}", match_pattern);
-    // println!("replace pattern: {:?}", replace_pattern);
+    crate::ocd::output::mrn_pattern_match(
+        Verbosity::Debug,
+        filename,
+        match_pattern,
+        replace_pattern,
+    );
 
     lazy_static! {
         static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
@@ -545,7 +551,7 @@ fn apply_pattern_match(
     let match_pattern = match_pattern.replace("{X}", r"(.*)"); // Anything
     let date_regex = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
     let match_pattern = match_pattern.replace("{D}", date_regex); // Date
-    // println!("match pattern after replacement: {:?}", match_pattern);
+                                                                  // println!("match pattern after replacement: {:?}", match_pattern);
 
     // TODO Replace data generators
     // n = n.replace("{date}",      time.strftime("%Y-%m-%d", time.localtime()))
@@ -762,7 +768,7 @@ fn execute_rules(
     buffer: &BTreeMap<PathBuf, PathBuf>,
 ) -> Result<(), String> {
     for (src, dst) in buffer {
-        crate::ocd::mrn::output::file_move(config, src, dst);
+        crate::ocd::output::file_move(config.verbosity, src, dst);
         if !config.dryrun {
             if config.git {
                 let src = src.to_str().unwrap();

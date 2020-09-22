@@ -1,5 +1,6 @@
 pub mod config;
 pub mod mrn;
+pub mod output;
 pub mod tss;
 
 use crate::ocd::mrn::MassRenameConfig;
