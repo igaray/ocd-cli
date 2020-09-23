@@ -5,7 +5,14 @@ use crate::ocd::mrn::Rule;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub(crate) fn mrn_state(
+pub fn mrn_lexer_error(verbosity: Verbosity, msg: &str) {
+    if verbosity.is_silent() {
+        return;
+    }
+    println!("{}", msg);
+}
+
+pub fn mrn_state(
     config: &crate::ocd::mrn::MassRenameConfig,
     tokens: &[Token],
     rules: &[Rule],
@@ -19,7 +26,7 @@ pub(crate) fn mrn_state(
     }
 }
 
-pub(crate) fn mrn_pattern_match(
+pub fn mrn_pattern_match(
     verbosity: Verbosity,
     filename: &str,
     match_pattern: &str,
@@ -33,7 +40,7 @@ pub(crate) fn mrn_pattern_match(
     println!("replace pattern: {:?}", replace_pattern);
 }
 
-pub(crate) fn mrn_result(verbosity: Verbosity, buffer: &BTreeMap<PathBuf, PathBuf>) {
+pub fn mrn_result(verbosity: Verbosity, buffer: &BTreeMap<PathBuf, PathBuf>) {
     if verbosity.is_silent() {
         return;
     }
@@ -43,35 +50,35 @@ pub(crate) fn mrn_result(verbosity: Verbosity, buffer: &BTreeMap<PathBuf, PathBu
     }
 }
 
-pub(crate) fn undo_script(verbosity: Verbosity) {
+pub fn undo_script(verbosity: Verbosity) {
     if verbosity.is_silent() {
         return;
     }
     println!("Creating undo script.");
 }
 
-pub(crate) fn file_move(verbosity: Verbosity, src: &Path, dst: &PathBuf) {
+pub fn file_move(verbosity: Verbosity, src: &Path, dst: &PathBuf) {
     if verbosity.is_silent() {
         return;
     }
     println!("Moving {:?}\n    to {:?}", src, dst);
 }
 
-pub(crate) fn file_move_error(verbosity: Verbosity, entry: &Path, reason: &std::io::Error) {
+pub fn file_move_error(verbosity: Verbosity, entry: &Path, reason: &std::io::Error) {
     if verbosity.is_silent() {
         return;
     }
     println!("Error moving file {:?}, reason: {:?}", entry, reason);
 }
 
-pub(crate) fn rename_error(verbosity: Verbosity, from: &std::path::Path, reason: &std::io::Error) {
+pub fn rename_error(verbosity: Verbosity, from: &std::path::Path, reason: &std::io::Error) {
     if verbosity.is_silent() {
         return;
     }
     println!("Error: file {:?} could not be renamed: {:?}", from, reason);
 }
 
-pub(crate) fn create_directory_error(
+pub fn create_directory_error(
     verbosity: Verbosity,
     destination: std::path::PathBuf,
     reason: &std::io::Error,

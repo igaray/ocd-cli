@@ -6,7 +6,6 @@ extern crate walkdir;
 pub mod lexer;
 pub mod parser;
 
-use self::dialoguer::Confirmation;
 use self::walkdir::WalkDir;
 use crate::ocd::config::{directory_value, mode_value, verbosity_value, Mode, Verbosity};
 use lazy_static::lazy_static;
@@ -126,11 +125,11 @@ pub fn run(config: &MassRenameConfig) -> Result<(), String> {
 
     let buffer = apply_rules(&config, &rules, &files)?;
 
-    if config.undo {
+    if !config.dryrun && config.undo {
         create_undo_script(config, &buffer);
     }
 
-    if config.yes || user_confirm() {
+    if config.yes || crate::ocd::input::user_confirm() {
         execute_rules(&config, &buffer)?
     }
     Ok(())
@@ -164,21 +163,11 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(err) => {
-                            return Err(format!(
-                                "Error while listing files: {:?}",
-                                err
-                            ))
-                        }
+                        Err(err) => return Err(format!("Error while listing files: {:?}", err)),
                     }
                 }
             }
-            Err(err) => {
-                return Err(format!(
-                    "Error while listing files: {:?}",
-                    err
-                ))
-            }
+            Err(err) => return Err(format!("Error while listing files: {:?}", err)),
         },
         (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -189,21 +178,11 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(err) => {
-                            return Err(format!(
-                                "Error while listing files: {:?}",
-                                err
-                            ))
-                        }
+                        Err(err) => return Err(format!("Error while listing files: {:?}", err)),
                     }
                 }
             }
-            Err(err) => {
-                return Err(format!(
-                    "Error while listing files: {:?}",
-                    err
-                ))
-            }
+            Err(err) => return Err(format!("Error while listing files: {:?}", err)),
         },
         (false, None, Mode::All) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -815,16 +794,6 @@ fn rename_file(path: &mut PathBuf, filename: String) {
     };
     path.set_file_name(filename);
     path.set_extension(extension);
-}
-
-fn user_confirm() -> bool {
-    match Confirmation::new()
-        .with_text("Do you want to continue?")
-        .interact()
-    {
-        Ok(cont) => cont,
-        Err(_) => false,
-    }
 }
 
 #[cfg(test)]

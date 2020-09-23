@@ -1,4 +1,4 @@
-use crate::ocd::mrn::{MassRenameConfig, Verbosity};
+use crate::ocd::mrn::MassRenameConfig;
 
 #[derive(Debug, PartialEq)]
 
@@ -305,9 +305,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*Init*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Init*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -374,9 +372,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*Comma*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Comma*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -441,9 +437,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*Space*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Space*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -472,9 +466,10 @@ impl Tokenizer {
                     self.state = TokenizerState::Comma;
                 }
                 Err(_err) => {
-                    if let Verbosity::Debug = config.verbosity {
-                        eprintln!("*Number* err: {}", _err)
-                    };
+                    crate::ocd::output::mrn_lexer_error(
+                        config.verbosity,
+                        format!("*Number* err: {}", _err).as_str(),
+                    );
                     self.state = TokenizerState::Error;
                 }
             },
@@ -483,10 +478,11 @@ impl Tokenizer {
                     tokens.push(Token::Number { value });
                     self.state = TokenizerState::Space;
                 }
-                Err(_err) => {
-                    if let Verbosity::Debug = config.verbosity {
-                        eprintln!("*Number*: err: {}", _err)
-                    };
+                Err(err) => {
+                    crate::ocd::output::mrn_lexer_error(
+                        config.verbosity,
+                        format!("*Number* err: {}", err).as_str(),
+                    );
                     self.state = TokenizerState::Error;
                 }
             },
@@ -495,9 +491,7 @@ impl Tokenizer {
                 self.state = TokenizerState::Number;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*Number* c: {}", c)
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, format!("*Number* c: {}", c).as_str());
                 self.state = TokenizerState::Error;
             }
         }
@@ -509,9 +503,7 @@ impl Tokenizer {
                 self.state = TokenizerState::CC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*C*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*C*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -526,9 +518,7 @@ impl Tokenizer {
                 self.state = TokenizerState::CCS;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*CC*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*CC*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -562,9 +552,7 @@ impl Tokenizer {
                 self.state = TokenizerState::DU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*D*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*D*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -594,9 +582,7 @@ impl Tokenizer {
                 self.state = TokenizerState::EN;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*E*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*E*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -616,9 +602,7 @@ impl Tokenizer {
                 self.state = TokenizerState::END;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*EN*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*EN*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -645,9 +629,7 @@ impl Tokenizer {
                 self.state = TokenizerState::IT;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*I*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*I*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -667,9 +649,7 @@ impl Tokenizer {
                 self.state = TokenizerState::LC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*L*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*L*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -699,9 +679,7 @@ impl Tokenizer {
                 self.state = TokenizerState::PU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*P*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*P*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -746,9 +724,7 @@ impl Tokenizer {
                 self.state = TokenizerState::SU;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*S*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*S*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -776,9 +752,7 @@ impl Tokenizer {
                 self.state = TokenizerState::TC;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*T*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*T*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -803,9 +777,7 @@ impl Tokenizer {
                 self.state = TokenizerState::US;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("*U*")
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, "*U*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -845,9 +817,7 @@ impl Tokenizer {
                 self.state = TokenizerState::Space;
             }
             _ => {
-                if let Verbosity::Debug = config.verbosity {
-                    eprintln!("{}", error_msg)
-                };
+                crate::ocd::output::mrn_lexer_error(config.verbosity, error_msg);
                 self.state = TokenizerState::Error;
             }
         }

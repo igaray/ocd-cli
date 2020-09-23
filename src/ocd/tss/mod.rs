@@ -1,11 +1,12 @@
 use crate::ocd::config::{directory_value, verbosity_value, Verbosity};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::option;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, Debug)]
 pub struct TimeStampSortConfig {
@@ -39,35 +40,58 @@ impl TimeStampSortConfig {
 }
 
 pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
-    for entry in WalkDir::new(&config.dir) {
-        process_entry(config, &entry.unwrap().path())
-    }
-
     if !config.dryrun && config.undo {
         crate::ocd::output::undo_script(config.verbosity);
         // TODO: implement undo
     }
-    Ok(()) // TODO change this so that it can return the error if something goes wrong.
-}
 
-fn process_entry(config: &TimeStampSortConfig, entry: &Path) {
-    if !entry.is_dir() {
-        if let Some(destination) = destination(&config.dir, &entry) {
-            match create_directory(config, &destination) {
-                Ok(_) => match move_file(config, &entry, &destination) {
-                    Ok(_) => {}
-                    Err(reason) => {
-                        crate::ocd::output::file_move_error(config.verbosity, entry, &reason);
-                    }
-                },
-                Err(reason) => crate::ocd::output::create_directory_error(
-                    config.verbosity,
-                    destination,
-                    &reason,
-                ),
-            }
+    let mut files = BTreeMap::new();
+    for entry in WalkDir::new(&config.dir) {
+        match entry {
+            Ok(entry) => {         
+                insert_if_timestamped(config, &mut files, entry);
+            },
+            Err(reason) => return Err(reason.to_string())
         }
     }
+
+    if config.yes || crate::ocd::input::user_confirm() {
+        for (src, dst) in files {
+            create_dir_and_move_file(config, src, dst)?;
+        }
+    }
+    
+    Ok(())
+}
+
+fn insert_if_timestamped(config: &TimeStampSortConfig, files: &mut BTreeMap<PathBuf, PathBuf>, entry: DirEntry) {
+    let path= entry.into_path();
+    if !path.is_dir() {
+        if let Some(destination) = destination(&config.dir, &path) {
+            files.insert(path, destination);
+        }
+    }
+}
+
+fn create_dir_and_move_file(config: &TimeStampSortConfig, file: PathBuf, destination: PathBuf) -> Result<(), String> {
+    /* This is how I'd like it...
+    create_directory(config, &destination)?;
+    move_file(config, &file, &destination)?;
+    */
+    match create_directory(config, &destination) {
+        Ok(_) => match move_file(config, &file, &destination) {
+            Ok(_) => {}
+            Err(reason) => {
+                crate::ocd::output::file_move_error(config.verbosity, &file, &reason);
+                return Err(format!("{:?}", reason))
+            }
+        },
+        Err(reason) => {
+            crate::ocd::output::create_directory_error(config.verbosity, destination, &reason);
+            return Err(format!("{:?}", reason))
+        }
+    }
+    Ok(())
 }
 
 fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
@@ -85,8 +109,8 @@ fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
 fn date(filename: &str) -> Option<(&str, &str, &str)> {
     lazy_static! {
         // YYYY?MM?DD or YYYYMMDD,
-        // where YYYY in [2000-2019], MM in [01-12], DD in [01-31]
-        static ref RE: Regex = Regex::new(r"\D*(20[01]\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*").unwrap();
+        // where YYYY in [1000-2999], MM in [01-12], DD in [01-31]
+        static ref RE: Regex = Regex::new(r"\D*(1\d\d\d|20\d\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*").unwrap();
     }
     RE.captures(filename).map(|captures| {
         let year = captures.get(1).unwrap().as_str();
