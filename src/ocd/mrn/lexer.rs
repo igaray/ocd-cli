@@ -1,7 +1,7 @@
 use crate::ocd::mrn::MassRenameConfig;
-use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
+use std::{error::Error, mem};
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -135,49 +135,48 @@ impl Tokenizer {
         config: &MassRenameConfig,
         input: &str,
     ) -> Result<Vec<Token>, Box<dyn Error>> {
-        let mut tokens = Vec::new();
         for c in input.chars() {
             match self.state {
-                TokenizerState::Init => self.state_init(config, c, &mut tokens),
-                TokenizerState::Comma => self.state_comma(config, c, &mut tokens),
-                TokenizerState::Space => self.state_space(config, c, &mut tokens),
-                TokenizerState::String => self.state_string(config, c, &mut tokens),
-                TokenizerState::Number => self.state_number(config, c, &mut tokens),
-                TokenizerState::C => self.state_c(config, c, &mut tokens),
-                TokenizerState::CC => self.state_cc(config, c, &mut tokens),
-                TokenizerState::CCJ => self.state_ccj(config, c, &mut tokens),
-                TokenizerState::CCS => self.state_ccs(config, c, &mut tokens),
-                TokenizerState::DP => self.state_dp(config, c, &mut tokens),
-                TokenizerState::DS => self.state_ds(config, c, &mut tokens),
-                TokenizerState::DU => self.state_du(config, c, &mut tokens),
-                TokenizerState::D => self.state_d(config, c, &mut tokens),
-                TokenizerState::E => self.state_e(config, c, &mut tokens),
-                TokenizerState::EN => self.state_en(config, c, &mut tokens),
-                TokenizerState::END => self.state_end(config, c, &mut tokens),
-                TokenizerState::EA => self.state_ea(config, c, &mut tokens),
-                TokenizerState::ER => self.state_er(config, c, &mut tokens),
-                TokenizerState::I => self.state_i(config, c, &mut tokens),
-                TokenizerState::IP => self.state_ip(config, c, &mut tokens),
-                TokenizerState::IT => self.state_it(config, c, &mut tokens),
-                TokenizerState::L => self.state_l(config, c, &mut tokens),
-                TokenizerState::LC => self.state_lc(config, c, &mut tokens),
-                TokenizerState::P => self.state_p(config, c, &mut tokens),
-                TokenizerState::PS => self.state_ps(config, c, &mut tokens),
-                TokenizerState::PD => self.state_pd(config, c, &mut tokens),
-                TokenizerState::PU => self.state_pu(config, c, &mut tokens),
-                TokenizerState::R => self.state_r(config, c, &mut tokens),
-                TokenizerState::S => self.state_s(config, c, &mut tokens),
-                TokenizerState::SC => self.state_sc(config, c, &mut tokens),
-                TokenizerState::SP => self.state_sp(config, c, &mut tokens),
-                TokenizerState::SD => self.state_sd(config, c, &mut tokens),
-                TokenizerState::SU => self.state_su(config, c, &mut tokens),
-                TokenizerState::T => self.state_t(config, c, &mut tokens),
-                TokenizerState::TC => self.state_tc(config, c, &mut tokens),
-                TokenizerState::U => self.state_u(config, c, &mut tokens),
-                TokenizerState::UC => self.state_uc(config, c, &mut tokens),
-                TokenizerState::UD => self.state_ud(config, c, &mut tokens),
-                TokenizerState::US => self.state_us(config, c, &mut tokens),
-                TokenizerState::UP => self.state_up(config, c, &mut tokens),
+                TokenizerState::Init => self.state_init(config, c),
+                TokenizerState::Comma => self.state_comma(config, c),
+                TokenizerState::Space => self.state_space(config, c),
+                TokenizerState::String => self.state_string(config, c),
+                TokenizerState::Number => self.state_number(config, c),
+                TokenizerState::C => self.state_c(config, c),
+                TokenizerState::CC => self.state_cc(config, c),
+                TokenizerState::CCJ => self.state_ccj(config, c),
+                TokenizerState::CCS => self.state_ccs(config, c),
+                TokenizerState::DP => self.state_dp(config, c),
+                TokenizerState::DS => self.state_ds(config, c),
+                TokenizerState::DU => self.state_du(config, c),
+                TokenizerState::D => self.state_d(config, c),
+                TokenizerState::E => self.state_e(config, c),
+                TokenizerState::EN => self.state_en(config, c),
+                TokenizerState::END => self.state_end(config, c),
+                TokenizerState::EA => self.state_ea(config, c),
+                TokenizerState::ER => self.state_er(config, c),
+                TokenizerState::I => self.state_i(config, c),
+                TokenizerState::IP => self.state_ip(config, c),
+                TokenizerState::IT => self.state_it(config, c),
+                TokenizerState::L => self.state_l(config, c),
+                TokenizerState::LC => self.state_lc(config, c),
+                TokenizerState::P => self.state_p(config, c),
+                TokenizerState::PS => self.state_ps(config, c),
+                TokenizerState::PD => self.state_pd(config, c),
+                TokenizerState::PU => self.state_pu(config, c),
+                TokenizerState::R => self.state_r(config, c),
+                TokenizerState::S => self.state_s(config, c),
+                TokenizerState::SC => self.state_sc(config, c),
+                TokenizerState::SP => self.state_sp(config, c),
+                TokenizerState::SD => self.state_sd(config, c),
+                TokenizerState::SU => self.state_su(config, c),
+                TokenizerState::T => self.state_t(config, c),
+                TokenizerState::TC => self.state_tc(config, c),
+                TokenizerState::U => self.state_u(config, c),
+                TokenizerState::UC => self.state_uc(config, c),
+                TokenizerState::UD => self.state_ud(config, c),
+                TokenizerState::US => self.state_us(config, c),
+                TokenizerState::UP => self.state_up(config, c),
                 TokenizerState::Error => {
                     return Err(Box::new(TokenizerError {
                         kind: TokenizerErrorKind::Unexpected,
@@ -190,14 +189,14 @@ impl Tokenizer {
         match self.state {
             TokenizerState::Init => {}
             TokenizerState::Comma => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
             }
             TokenizerState::Space => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
             }
             TokenizerState::Number => match self.number.parse::<usize>() {
                 Ok(value) => {
-                    tokens.push(Token::Number { value });
+                    self.tokens.push(Token::Number { value });
                 }
                 Err(err) => {
                     return Err(Box::new(TokenizerError {
@@ -208,88 +207,88 @@ impl Tokenizer {
                 }
             },
             TokenizerState::CCJ => {
-                tokens.push(Token::CamelCaseJoin);
+                self.tokens.push(Token::CamelCaseJoin);
             }
             TokenizerState::CCS => {
-                tokens.push(Token::CamelCaseSplit);
+                self.tokens.push(Token::CamelCaseSplit);
             }
             TokenizerState::D => {
-                tokens.push(Token::Delete);
+                self.tokens.push(Token::Delete);
             }
             TokenizerState::DP => {
-                tokens.push(Token::ReplaceDashPeriod);
+                self.tokens.push(Token::ReplaceDashPeriod);
             }
             TokenizerState::DS => {
-                tokens.push(Token::ReplaceDashSpace);
+                self.tokens.push(Token::ReplaceDashSpace);
             }
             TokenizerState::DU => {
-                tokens.push(Token::ReplaceDashUnder);
+                self.tokens.push(Token::ReplaceDashUnder);
             }
             TokenizerState::EA => {
-                tokens.push(Token::ExtensionAdd);
+                self.tokens.push(Token::ExtensionAdd);
             }
             TokenizerState::ER => {
-                tokens.push(Token::ExtensionRemove);
+                self.tokens.push(Token::ExtensionRemove);
             }
             TokenizerState::END => {
-                tokens.push(Token::End);
+                self.tokens.push(Token::End);
             }
             TokenizerState::I => {
-                tokens.push(Token::Insert);
+                self.tokens.push(Token::Insert);
             }
             TokenizerState::IP => {
-                tokens.push(Token::InteractivePatternMatch);
+                self.tokens.push(Token::InteractivePatternMatch);
             }
             TokenizerState::IT => {
-                tokens.push(Token::InteractiveTokenize);
+                self.tokens.push(Token::InteractiveTokenize);
             }
             TokenizerState::LC => {
-                tokens.push(Token::LowerCase);
+                self.tokens.push(Token::LowerCase);
             }
             TokenizerState::P => {
-                tokens.push(Token::PatternMatch);
+                self.tokens.push(Token::PatternMatch);
             }
             TokenizerState::PD => {
-                tokens.push(Token::ReplacePeriodDash);
+                self.tokens.push(Token::ReplacePeriodDash);
             }
             TokenizerState::PS => {
-                tokens.push(Token::ReplacePeriodSpace);
+                self.tokens.push(Token::ReplacePeriodSpace);
             }
             TokenizerState::PU => {
-                tokens.push(Token::ReplacePeriodUnder);
+                self.tokens.push(Token::ReplacePeriodUnder);
             }
             TokenizerState::R => {
-                tokens.push(Token::Replace);
+                self.tokens.push(Token::Replace);
             }
             TokenizerState::S => {
-                tokens.push(Token::Sanitize);
+                self.tokens.push(Token::Sanitize);
             }
             TokenizerState::SC => {
-                tokens.push(Token::SentenceCase);
+                self.tokens.push(Token::SentenceCase);
             }
             TokenizerState::SP => {
-                tokens.push(Token::ReplaceSpacePeriod);
+                self.tokens.push(Token::ReplaceSpacePeriod);
             }
             TokenizerState::SD => {
-                tokens.push(Token::ReplaceSpaceDash);
+                self.tokens.push(Token::ReplaceSpaceDash);
             }
             TokenizerState::SU => {
-                tokens.push(Token::ReplaceSpaceUnder);
+                self.tokens.push(Token::ReplaceSpaceUnder);
             }
             TokenizerState::TC => {
-                tokens.push(Token::TitleCase);
+                self.tokens.push(Token::TitleCase);
             }
             TokenizerState::UC => {
-                tokens.push(Token::UpperCase);
+                self.tokens.push(Token::UpperCase);
             }
             TokenizerState::UD => {
-                tokens.push(Token::ReplaceUnderDash);
+                self.tokens.push(Token::ReplaceUnderDash);
             }
             TokenizerState::UP => {
-                tokens.push(Token::ReplaceUnderPeriod);
+                self.tokens.push(Token::ReplaceUnderPeriod);
             }
             TokenizerState::US => {
-                tokens.push(Token::ReplaceUnderSpace);
+                self.tokens.push(Token::ReplaceUnderSpace);
             }
             TokenizerState::String => {
                 return Err(Box::new(TokenizerError {
@@ -355,10 +354,12 @@ impl Tokenizer {
                 }))
             }
         }
+        let mut tokens = Vec::new();
+        mem::swap(&mut self.tokens, &mut tokens);
         Ok(tokens)
     }
 
-    fn state_init(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_init(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
                 self.state = TokenizerState::Comma;
@@ -412,14 +413,14 @@ impl Tokenizer {
         }
     }
 
-    fn state_comma(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_comma(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::Space;
             }
             '"' => {
@@ -427,49 +428,49 @@ impl Tokenizer {
                 self.state = TokenizerState::String;
             }
             '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.number.clear();
                 self.number.push(c);
                 self.state = TokenizerState::Number;
             }
             'c' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::C;
             }
             'd' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::D;
             }
             'e' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::E;
             }
             'i' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::I;
             }
             'l' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::L;
             }
             'p' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::P;
             }
             'r' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::R;
             }
             's' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::S;
             }
             't' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::T;
             }
             'u' => {
-                tokens.push(Token::Comma);
+                self.tokens.push(Token::Comma);
                 self.state = TokenizerState::U;
             }
             _ => {
@@ -479,62 +480,62 @@ impl Tokenizer {
         }
     }
 
-    fn state_space(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_space(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ' ' => {}
             ',' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::Comma;
             }
             '"' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.string.clear();
                 self.state = TokenizerState::String;
             }
             '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.number.clear();
                 self.number.push(c);
                 self.state = TokenizerState::Number;
             }
             'c' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::C;
             }
             'd' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::D;
             }
             'e' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::E;
             }
             'i' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::I;
             }
             'l' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::L;
             }
             'p' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::P;
             }
             'r' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::R;
             }
             's' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::S;
             }
             't' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::T;
             }
             'u' => {
-                tokens.push(Token::Space);
+                self.tokens.push(Token::Space);
                 self.state = TokenizerState::U;
             }
             _ => {
@@ -544,10 +545,10 @@ impl Tokenizer {
         }
     }
 
-    fn state_string(&mut self, _config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_string(&mut self, _config: &MassRenameConfig, c: char) {
         match c {
             '"' => {
-                tokens.push(Token::String {
+                self.tokens.push(Token::String {
                     value: self.string.clone(),
                 });
                 self.string.clear();
@@ -559,11 +560,11 @@ impl Tokenizer {
         }
     }
 
-    fn state_number(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_number(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => match self.number.parse::<usize>() {
                 Ok(value) => {
-                    tokens.push(Token::Number { value });
+                    self.tokens.push(Token::Number { value });
                     self.state = TokenizerState::Comma;
                 }
                 Err(_err) => {
@@ -576,7 +577,7 @@ impl Tokenizer {
             },
             ' ' => match self.number.parse::<usize>() {
                 Ok(value) => {
-                    tokens.push(Token::Number { value });
+                    self.tokens.push(Token::Number { value });
                     self.state = TokenizerState::Space;
                 }
                 Err(err) => {
@@ -601,7 +602,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_c(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_c(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'c' => {
                 self.state = TokenizerState::CC;
@@ -613,7 +614,7 @@ impl Tokenizer {
         }
     }
 
-    fn state_cc(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_cc(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'j' => {
                 self.state = TokenizerState::CCJ;
@@ -628,22 +629,22 @@ impl Tokenizer {
         }
     }
 
-    fn state_ccj(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::CamelCaseJoin, "*CCJ*")
+    fn state_ccj(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::CamelCaseJoin, "*CCJ*")
     }
 
-    fn state_ccs(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::CamelCaseSplit, "*CCS*")
+    fn state_ccs(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::CamelCaseSplit, "*CCS*")
     }
 
-    fn state_d(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_d(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
-                tokens.push(Token::Delete);
+                self.tokens.push(Token::Delete);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(Token::Delete);
+                self.tokens.push(Token::Delete);
                 self.state = TokenizerState::Space;
             }
             'p' => {
@@ -662,19 +663,19 @@ impl Tokenizer {
         }
     }
 
-    fn state_dp(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceDashPeriod, "*DP*")
+    fn state_dp(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceDashPeriod, "*DP*")
     }
 
-    fn state_ds(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceDashSpace, "*DS*")
+    fn state_ds(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceDashSpace, "*DS*")
     }
 
-    fn state_du(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceDashUnder, "*DU*")
+    fn state_du(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceDashUnder, "*DU*")
     }
 
-    fn state_e(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_e(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'a' => {
                 self.state = TokenizerState::EA;
@@ -692,15 +693,15 @@ impl Tokenizer {
         }
     }
 
-    fn state_ea(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ExtensionAdd, "*EA*")
+    fn state_ea(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ExtensionAdd, "*EA*")
     }
 
-    fn state_er(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ExtensionRemove, "*ER*")
+    fn state_er(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ExtensionRemove, "*ER*")
     }
 
-    fn state_en(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_en(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'd' => {
                 self.state = TokenizerState::END;
@@ -712,18 +713,18 @@ impl Tokenizer {
         }
     }
 
-    fn state_end(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::End, "*END*")
+    fn state_end(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::End, "*END*")
     }
 
-    fn state_i(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_i(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
-                tokens.push(Token::Insert);
+                self.tokens.push(Token::Insert);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(Token::Insert);
+                self.tokens.push(Token::Insert);
                 self.state = TokenizerState::Space;
             }
             'p' => {
@@ -739,15 +740,15 @@ impl Tokenizer {
         }
     }
 
-    fn state_ip(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::InteractivePatternMatch, "*IP*")
+    fn state_ip(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::InteractivePatternMatch, "*IP*")
     }
 
-    fn state_it(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::InteractiveTokenize, "*IT*")
+    fn state_it(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::InteractiveTokenize, "*IT*")
     }
 
-    fn state_l(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_l(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'c' => {
                 self.state = TokenizerState::LC;
@@ -759,18 +760,18 @@ impl Tokenizer {
         }
     }
 
-    fn state_lc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::LowerCase, "*LC*")
+    fn state_lc(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::LowerCase, "*LC*")
     }
 
-    fn state_p(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_p(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
-                tokens.push(Token::PatternMatch);
+                self.tokens.push(Token::PatternMatch);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(Token::PatternMatch);
+                self.tokens.push(Token::PatternMatch);
                 self.state = TokenizerState::Space;
             }
             's' => {
@@ -789,30 +790,30 @@ impl Tokenizer {
         }
     }
 
-    fn state_pd(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplacePeriodDash, "*PD*")
+    fn state_pd(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplacePeriodDash, "*PD*")
     }
 
-    fn state_ps(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplacePeriodSpace, "*PS*")
+    fn state_ps(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplacePeriodSpace, "*PS*")
     }
 
-    fn state_pu(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplacePeriodUnder, "*PU*")
+    fn state_pu(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplacePeriodUnder, "*PU*")
     }
 
-    fn state_r(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::Replace, "*R*")
+    fn state_r(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::Replace, "*R*")
     }
 
-    fn state_s(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
+    fn state_s(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             ',' => {
-                tokens.push(Token::Sanitize);
+                self.tokens.push(Token::Sanitize);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(Token::Sanitize);
+                self.tokens.push(Token::Sanitize);
                 self.state = TokenizerState::Space;
             }
             'c' => {
@@ -834,23 +835,23 @@ impl Tokenizer {
         }
     }
 
-    fn state_sc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::SentenceCase, "*SC*")
+    fn state_sc(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::SentenceCase, "*SC*")
     }
 
-    fn state_sp(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceSpacePeriod, "*SP*")
+    fn state_sp(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceSpacePeriod, "*SP*")
     }
 
-    fn state_sd(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceSpaceDash, "*SD*")
+    fn state_sd(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceSpaceDash, "*SD*")
     }
 
-    fn state_su(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceSpaceUnder, "*SU*")
+    fn state_su(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceSpaceUnder, "*SU*")
     }
 
-    fn state_t(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_t(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'c' => {
                 self.state = TokenizerState::TC;
@@ -862,11 +863,11 @@ impl Tokenizer {
         }
     }
 
-    fn state_tc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::TitleCase, "*TC*")
+    fn state_tc(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::TitleCase, "*TC*")
     }
 
-    fn state_u(&mut self, config: &MassRenameConfig, c: char, _tokens: &mut Vec<Token>) {
+    fn state_u(&mut self, config: &MassRenameConfig, c: char) {
         match c {
             'c' => {
                 self.state = TokenizerState::UC;
@@ -887,37 +888,30 @@ impl Tokenizer {
         }
     }
 
-    fn state_uc(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::UpperCase, "*UC*")
+    fn state_uc(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::UpperCase, "*UC*")
     }
 
-    fn state_ud(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceUnderDash, "*UD*")
+    fn state_ud(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceUnderDash, "*UD*")
     }
 
-    fn state_us(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceUnderSpace, "*US*")
+    fn state_us(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceUnderSpace, "*US*")
     }
 
-    fn state_up(&mut self, config: &MassRenameConfig, c: char, tokens: &mut Vec<Token>) {
-        self.emit_token(config, c, tokens, Token::ReplaceUnderPeriod, "*UP*")
+    fn state_up(&mut self, config: &MassRenameConfig, c: char) {
+        self.emit_token(config, c, Token::ReplaceUnderPeriod, "*UP*")
     }
 
-    fn emit_token(
-        &mut self,
-        config: &MassRenameConfig,
-        c: char,
-        tokens: &mut Vec<Token>,
-        token: Token,
-        error_msg: &str,
-    ) {
+    fn emit_token(&mut self, config: &MassRenameConfig, c: char, token: Token, error_msg: &str) {
         match c {
             ',' => {
-                tokens.push(token);
+                self.tokens.push(token);
                 self.state = TokenizerState::Comma;
             }
             ' ' => {
-                tokens.push(token);
+                self.tokens.push(token);
                 self.state = TokenizerState::Space;
             }
             _ => {
