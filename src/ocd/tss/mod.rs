@@ -2,6 +2,7 @@ use crate::ocd::config::{directory_value, verbosity_value, Verbosity};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::BTreeMap;
+use std::error::Error;
 use std::fs;
 use std::io;
 use std::option;
@@ -39,7 +40,7 @@ impl TimeStampSortConfig {
     }
 }
 
-pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
+pub fn run(config: &TimeStampSortConfig) -> Result<(), Box<dyn Error>> {
     if !config.dryrun && config.undo {
         crate::ocd::output::undo_script(config.verbosity);
         // TODO: implement undo
@@ -48,10 +49,10 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
     let mut files = BTreeMap::new();
     for entry in WalkDir::new(&config.dir) {
         match entry {
-            Ok(entry) => {         
+            Ok(entry) => {
                 insert_if_timestamped(config, &mut files, entry);
-            },
-            Err(reason) => return Err(reason.to_string())
+            }
+            Err(reason) => return Err(Box::new(reason)),
         }
     }
 
@@ -60,12 +61,16 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), String> {
             create_dir_and_move_file(config, src, dst)?;
         }
     }
-    
+
     Ok(())
 }
 
-fn insert_if_timestamped(config: &TimeStampSortConfig, files: &mut BTreeMap<PathBuf, PathBuf>, entry: DirEntry) {
-    let path= entry.into_path();
+fn insert_if_timestamped(
+    config: &TimeStampSortConfig,
+    files: &mut BTreeMap<PathBuf, PathBuf>,
+    entry: DirEntry,
+) {
+    let path = entry.into_path();
     if !path.is_dir() {
         if let Some(destination) = destination(&config.dir, &path) {
             files.insert(path, destination);
@@ -73,24 +78,13 @@ fn insert_if_timestamped(config: &TimeStampSortConfig, files: &mut BTreeMap<Path
     }
 }
 
-fn create_dir_and_move_file(config: &TimeStampSortConfig, file: PathBuf, destination: PathBuf) -> Result<(), String> {
-    /* This is how I'd like it...
+fn create_dir_and_move_file(
+    config: &TimeStampSortConfig,
+    file: PathBuf,
+    destination: PathBuf,
+) -> Result<(), Box<dyn Error>> {
     create_directory(config, &destination)?;
     move_file(config, &file, &destination)?;
-    */
-    match create_directory(config, &destination) {
-        Ok(_) => match move_file(config, &file, &destination) {
-            Ok(_) => {}
-            Err(reason) => {
-                crate::ocd::output::file_move_error(config.verbosity, &file, &reason);
-                return Err(format!("{:?}", reason))
-            }
-        },
-        Err(reason) => {
-            crate::ocd::output::create_directory_error(config.verbosity, destination, &reason);
-            return Err(format!("{:?}", reason))
-        }
-    }
     Ok(())
 }
 
@@ -125,22 +119,14 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
         let mut full_path = PathBuf::new();
         full_path.push(directory);
         match fs::create_dir(&full_path) {
-            Ok(_) => Ok(()),
+            Ok(_) => return Ok(()),
             Err(reason) => match reason.kind() {
-                io::ErrorKind::AlreadyExists => Ok(()),
-                _ => {
-                    crate::ocd::output::create_directory_error(
-                        config.verbosity,
-                        full_path,
-                        &reason,
-                    );
-                    Err(reason)
-                }
+                io::ErrorKind::AlreadyExists => return Ok(()),
+                _ => return Err(reason),
             },
         }
-    } else {
-        Ok(())
     }
+    Ok(())
 }
 
 fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Result<()> {
@@ -151,19 +137,10 @@ fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Resu
     crate::ocd::output::file_move(config.verbosity, from, &to);
 
     if !config.dryrun {
-        match fs::rename(from, to) {
-            Ok(_) => {
-                if config.undo {
-                    // TODO implement undo script
-                }
-                Ok(())
-            }
-            Err(reason) => {
-                crate::ocd::output::rename_error(config.verbosity, from, &reason);
-                Err(reason)
-            }
+        if config.undo {
+            // TODO implement undo script
         }
-    } else {
-        Ok(())
+        fs::rename(from, to)?
     }
+    Ok(())
 }

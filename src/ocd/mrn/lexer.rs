@@ -1,7 +1,9 @@
 use crate::ocd::mrn::MassRenameConfig;
+use std::error::Error;
+use std::fmt;
+use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
-
 pub enum Token {
     Comma,
     Space,
@@ -37,6 +39,36 @@ pub enum Token {
     Sanitize,
 }
 
+#[derive(Debug)]
+pub enum TokenizerErrorKind {
+    Unexpected,
+    UnfinishedString,
+    UnfinishedRule,
+    ParseIntError,
+}
+
+#[derive(Debug)]
+pub struct TokenizerError {
+    kind: TokenizerErrorKind,
+    // input: String,
+    state: TokenizerState,
+    // position: usize,
+    msg: String,
+}
+
+impl Error for TokenizerError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
+impl Display for TokenizerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TokenizerError")
+    }
+}
+
+#[derive(Debug)]
 enum TokenizerState {
     Init,
     Error,
@@ -85,6 +117,7 @@ struct Tokenizer {
     state: TokenizerState,
     string: String,
     number: String,
+    tokens: Vec<Token>,
 }
 
 impl Tokenizer {
@@ -93,15 +126,19 @@ impl Tokenizer {
             state: TokenizerState::Init,
             string: String::new(),
             number: String::new(),
+            tokens: Vec::new(),
         }
     }
 
-    pub fn run(&mut self, config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, String> {
+    pub fn run(
+        &mut self,
+        config: &MassRenameConfig,
+        input: &str,
+    ) -> Result<Vec<Token>, Box<dyn Error>> {
         let mut tokens = Vec::new();
         for c in input.chars() {
             match self.state {
                 TokenizerState::Init => self.state_init(config, c, &mut tokens),
-                TokenizerState::Error => return Err(String::from("Lexer error")),
                 TokenizerState::Comma => self.state_comma(config, c, &mut tokens),
                 TokenizerState::Space => self.state_space(config, c, &mut tokens),
                 TokenizerState::String => self.state_string(config, c, &mut tokens),
@@ -141,6 +178,13 @@ impl Tokenizer {
                 TokenizerState::UD => self.state_ud(config, c, &mut tokens),
                 TokenizerState::US => self.state_us(config, c, &mut tokens),
                 TokenizerState::UP => self.state_up(config, c, &mut tokens),
+                TokenizerState::Error => {
+                    return Err(Box::new(TokenizerError {
+                        kind: TokenizerErrorKind::Unexpected,
+                        state: TokenizerState::Error,
+                        msg: String::from("Unexpected lexer error"),
+                    }))
+                }
             }
         }
         match self.state {
@@ -156,10 +200,11 @@ impl Tokenizer {
                     tokens.push(Token::Number { value });
                 }
                 Err(err) => {
-                    return Err(String::from(format!(
-                        "Error: unable to read number: {:?}",
-                        err
-                    )))
+                    return Err(Box::new(TokenizerError {
+                        kind: TokenizerErrorKind::ParseIntError,
+                        state: TokenizerState::Number,
+                        msg: String::from(format!("Error: unable to read number: {:?}", err)),
+                    }))
                 }
             },
             TokenizerState::CCJ => {
@@ -186,7 +231,9 @@ impl Tokenizer {
             TokenizerState::ER => {
                 tokens.push(Token::ExtensionRemove);
             }
-            TokenizerState::END => tokens.push(Token::End),
+            TokenizerState::END => {
+                tokens.push(Token::End);
+            }
             TokenizerState::I => {
                 tokens.push(Token::Insert);
             }
@@ -244,15 +291,69 @@ impl Tokenizer {
             TokenizerState::US => {
                 tokens.push(Token::ReplaceUnderSpace);
             }
-            TokenizerState::String => return Err(String::from("Error: unfinished string")),
-            TokenizerState::C => return Err(String::from("Error: unfinished rule, read: 'c'")),
-            TokenizerState::CC => return Err(String::from("Error: unfinished rule, read: 'cc'")),
-            TokenizerState::E => return Err(String::from("Error: unfinished rule, read: 'e'")),
-            TokenizerState::EN => return Err(String::from("Error: unfinished end")),
-            TokenizerState::L => return Err(String::from("Error: unfinished rule, read: 'l'")),
-            TokenizerState::T => return Err(String::from("Error: unfinished rule, read: 't'")),
-            TokenizerState::U => return Err(String::from("Error: unfinished rule, read: 'u'")),
-            TokenizerState::Error => return Err(String::from("Error while reading input")),
+            TokenizerState::String => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedString,
+                    state: TokenizerState::String,
+                    msg: String::from("Error: unfinished string"),
+                }))
+            }
+            TokenizerState::C => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::C,
+                    msg: String::from("Error: unfinished case rule"),
+                }))
+            }
+            TokenizerState::CC => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::CC,
+                    msg: String::from("Error: unfinished rule, read: 'cc'"),
+                }))
+            }
+            TokenizerState::E => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::E,
+                    msg: String::from("Error: unfinished rule, read: 'e'"),
+                }))
+            }
+            TokenizerState::EN => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::EN,
+                    msg: String::from("Error: unfinished end"),
+                }))
+            }
+            TokenizerState::L => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::L,
+                    msg: String::from("Error: unfinished rule, read: 'l'"),
+                }))
+            }
+            TokenizerState::T => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::T,
+                    msg: String::from("Error: unfinished rule, read: 't'"),
+                }))
+            }
+            TokenizerState::U => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::U,
+                    msg: String::from("Error: unfinished rule, read: 'u'"),
+                }))
+            }
+            TokenizerState::Error => {
+                return Err(Box::new(TokenizerError {
+                    kind: TokenizerErrorKind::UnfinishedRule,
+                    state: TokenizerState::Error,
+                    msg: String::from("Error while reading input"),
+                }))
+            }
         }
         Ok(tokens)
     }
@@ -491,7 +592,10 @@ impl Tokenizer {
                 self.state = TokenizerState::Number;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, format!("*Number* c: {}", c).as_str());
+                crate::ocd::output::mrn_lexer_error(
+                    config.verbosity,
+                    format!("*Number* c: {}", c).as_str(),
+                );
                 self.state = TokenizerState::Error;
             }
         }
@@ -824,7 +928,7 @@ impl Tokenizer {
     }
 }
 
-pub fn tokenize(config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, String> {
+pub fn tokenize(config: &MassRenameConfig, input: &str) -> Result<Vec<Token>, Box<dyn Error>> {
     Tokenizer::new().run(config, input)
 }
 

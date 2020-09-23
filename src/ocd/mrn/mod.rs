@@ -11,6 +11,7 @@ use crate::ocd::config::{directory_value, mode_value, verbosity_value, Mode, Ver
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::BTreeMap;
+use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -115,7 +116,7 @@ impl MassRenameConfig {
     }
 }
 
-pub fn run(config: &MassRenameConfig) -> Result<(), String> {
+pub fn run(config: &MassRenameConfig) -> Result<(), Box<dyn Error>> {
     let rules_raw = config.rules_raw.clone().unwrap();
     let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
     let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;

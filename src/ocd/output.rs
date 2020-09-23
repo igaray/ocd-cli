@@ -63,31 +63,3 @@ pub fn file_move(verbosity: Verbosity, src: &Path, dst: &PathBuf) {
     }
     println!("Moving {:?}\n    to {:?}", src, dst);
 }
-
-pub fn file_move_error(verbosity: Verbosity, entry: &Path, reason: &std::io::Error) {
-    if verbosity.is_silent() {
-        return;
-    }
-    println!("Error moving file {:?}, reason: {:?}", entry, reason);
-}
-
-pub fn rename_error(verbosity: Verbosity, from: &std::path::Path, reason: &std::io::Error) {
-    if verbosity.is_silent() {
-        return;
-    }
-    println!("Error: file {:?} could not be renamed: {:?}", from, reason);
-}
-
-pub fn create_directory_error(
-    verbosity: Verbosity,
-    destination: std::path::PathBuf,
-    reason: &std::io::Error,
-) {
-    if verbosity.is_silent() {
-        return;
-    }
-    println!(
-        "Unable to create directory {:?}, reason: {:?}",
-        destination, reason
-    );
-}
