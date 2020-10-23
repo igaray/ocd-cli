@@ -2,6 +2,7 @@ use crate::ocd::mrn::MassRenameConfig;
 use std::fmt;
 use std::fmt::Display;
 use std::{error::Error, mem};
+use tracing::{span, Level};
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -135,6 +136,9 @@ impl Tokenizer {
         config: &MassRenameConfig,
         input: &str,
     ) -> Result<Vec<Token>, Box<dyn Error>> {
+        let span = span!(Level::TRACE, "lexer");
+        let _guard = span.enter();
+        
         for c in input.chars() {
             match self.state {
                 TokenizerState::Init => self.state_init(config, c),

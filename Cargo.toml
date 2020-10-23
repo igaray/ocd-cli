@@ -19,6 +19,7 @@ name = "ocd"
 path = "src/main.rs"
 
 [dependencies]
+tracing = "0.1"
 clap = {version = "2", features = ["yaml"]}
 dialoguer = "0.3.0"
 kamadak-exif = "0.3"
