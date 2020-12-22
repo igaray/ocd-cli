@@ -1,5 +1,6 @@
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
+use crate::ocd::id3::FixId3Config;
 use crate::ocd::Command;
 use std::path::{Path, PathBuf};
 
@@ -53,6 +54,14 @@ impl Config {
         let ocd_matches = app.get_matches();
 
         match ocd_matches.subcommand() {
+            ("id3", Some(subcommand_matches)) => {
+                let subcommand_config = FixId3Config::new().with_args(subcommand_matches);
+                let subcommand = Some(Command::FixId3 {
+                    config: subcommand_config,
+                });
+                let config = Config { subcommand };
+                Ok(config)
+            }
             ("mrn", Some(subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new().with_args(subcommand_matches);
                 let subcommand = Some(Command::MassRename {

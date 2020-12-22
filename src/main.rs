@@ -15,25 +15,20 @@ use tracing::{span, Level};
 fn main() {
     let span = span!(Level::TRACE, "main");
     let _guard = span.enter();
-    
+
     let config = Config::new().with_args().unwrap_or_else(|error| {
         eprintln!("{}", error);
         process::exit(1)
     });
 
-    match config.subcommand {
-        Some(Command::MassRename { ref config }) => {
-            if let Err(reason) = crate::ocd::mrn::run(config) {
-                eprintln!("{}", reason);
-                process::exit(1)
-            }
-        }
-        Some(Command::TimeStampSort { ref config }) => {
-            if let Err(reason) = crate::ocd::tss::run(config) {
-                eprintln!("{}", reason);
-                process::exit(1)
-            }
-        }
+    let result = match config.subcommand {
+        Some(Command::FixId3 { ref config }) => crate::ocd::id3::run(config),
+        Some(Command::MassRename { ref config }) => crate::ocd::mrn::run(config),
+        Some(Command::TimeStampSort { ref config }) => crate::ocd::tss::run(config),
         None => unreachable!(),
+    };
+    if let Err(reason) = result {
+        eprintln!("{}", reason);
+        process::exit(1)
     }
 }

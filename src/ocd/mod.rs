@@ -3,7 +3,9 @@ pub mod input;
 pub mod mrn;
 pub mod output;
 pub mod tss;
+pub mod id3;
 
+use crate::ocd::id3::FixId3Config;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
 
@@ -12,9 +14,9 @@ use crate::ocd::tss::TimeStampSortConfig;
 #[remain::sorted]
 #[derive(Clone, Debug)]
 pub enum Command {
+    FixId3 { config: FixId3Config },
     MassRename { config: MassRenameConfig },
     TimeStampSort { config: TimeStampSortConfig },
-    // FixID3 { config: FixID3Config },
     // ElephantClient{ config: ElephantClientConfig },
     // ElephantServer{ config: ElephantServerConfig },
 }

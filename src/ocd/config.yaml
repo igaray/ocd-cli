@@ -12,8 +12,8 @@ subcommands:
                                 multiple: true
                                 short: v
                                 help: >
-                                    Sets the verbosity level. Default is low, 
-                                    one flag medium, two high, three or more 
+                                    Sets the verbosity level. Default is low,
+                                    one flag medium, two high, three or more
                                     debug.
                         - silent:
                                 long: silent
@@ -31,7 +31,7 @@ subcommands:
                                 short: m
                                 long: mode
                                 help: >
-                                     Specified whether the rules are applied to directories 
+                                     Specified whether the rules are applied to directories
                                      (b), files (f) or all (a).
                         - dry-run:
                                 long: dry-run
@@ -50,7 +50,7 @@ subcommands:
                         - yes:
                                 long: yes
                                 help: >
-                                    Do not ask for confirmation. 
+                                    Do not ask for confirmation.
                                     Useful for non-interactive batch scripts.
                         - glob:
                                 takes_value: true
@@ -116,10 +116,28 @@ subcommands:
                         - yes:
                                 long: yes
                                 help: >
-                                    Do not ask for confirmation. 
+                                    Do not ask for confirmation.
                                     Useful for non-interactive batch scripts.
-        # - id3:
-        #         about: "Fix id3 tags"
+        - id3:
+                about: "Fix id3 tags"
+                args:
+                        - silent:
+                                long: silent
+                                help: "Silences all output."
+                        - dir:
+                                takes_value: true
+                                default_value: "./"
+                                short: d
+                                long: dir
+                                help: "Run inside a given directory."
+                        - dry-run:
+                                long: dry-run
+                                help: "Do not effect any changes on the filesystem."
+                        - yes:
+                                long: yes
+                                help: >
+                                    Do not ask for confirmation.
+                                    Useful for non-interactive batch scripts.
         # - lphc:
         #         about: "Elephant client"
         # - lphs:
