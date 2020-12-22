@@ -1,6 +1,6 @@
+use crate::ocd::id3::FixId3Config;
 use crate::ocd::mrn::MassRenameConfig;
 use crate::ocd::tss::TimeStampSortConfig;
-use crate::ocd::id3::FixId3Config;
 use crate::ocd::Command;
 use std::path::{Path, PathBuf};
 
@@ -23,10 +23,7 @@ pub enum Verbosity {
 
 impl Verbosity {
     pub fn is_silent(self) -> bool {
-        match self {
-            Verbosity::Silent => true,
-            _ => false,
-        }
+        matches!(self, Verbosity::Silent)
     }
 }
 

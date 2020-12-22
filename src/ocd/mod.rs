@@ -1,9 +1,9 @@
 pub mod config;
+pub mod id3;
 pub mod input;
 pub mod mrn;
 pub mod output;
 pub mod tss;
-pub mod id3;
 
 use crate::ocd::id3::FixId3Config;
 use crate::ocd::mrn::MassRenameConfig;
