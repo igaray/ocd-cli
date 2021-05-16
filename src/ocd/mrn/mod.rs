@@ -495,7 +495,7 @@ fn apply_pattern_match(
             "nov" | "Nov" | "november" | "November" => "11",
             "dec" | "Dec" | "december" | "December" => "12",
             unexpected => {
-                panic!(format!("Unknown month value! {}", unexpected));
+                panic!("Unknown month value! {}", unexpected);
             }
         }
     }
@@ -799,8 +799,8 @@ fn rename_file(path: &mut PathBuf, filename: String) {
 
 #[cfg(test)]
 mod test {
-    use crate::ocd::mrn::apply_camel_case_join;
-    use crate::ocd::mrn::apply_camel_case_split;
+    // use crate::ocd::mrn::apply_camel_case_join;
+    // use crate::ocd::mrn::apply_camel_case_split;
     use crate::ocd::mrn::apply_delete;
     use crate::ocd::mrn::apply_insert;
     use crate::ocd::mrn::apply_lower_case;
@@ -844,14 +844,14 @@ mod test {
         apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
     t!(sentence_case_test_4:
         apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
-    t!(camel_case_join_test:
-        apply_camel_case_join("Camel case Join") => "CamelCaseJoin");
-    t!(camel_case_split_test_1:
-        apply_camel_case_split("CamelCase") => "Camel Case");
-    t!(camel_case_split_test_2:
-        apply_camel_case_split("CamelCaseSplit") => "Camel Case Split");
-    t!(camel_case_split_test_3:
-        apply_camel_case_split("XMLHttpRequest") => "Xml Http Request");
+    // t!(camel_case_join_test:
+    //     apply_camel_case_join("Camel case Join") => "CamelCaseJoin");
+    // t!(camel_case_split_test_1:
+    //     apply_camel_case_split("CamelCase") => "Camel Case");
+    // t!(camel_case_split_test_2:
+    //     apply_camel_case_split("CamelCaseSplit") => "Camel Case Split");
+    // t!(camel_case_split_test_3:
+    //     apply_camel_case_split("XMLHttpRequest") => "Xml Http Request");
     t!(replace_test:
         apply_replace("aa bbccdd ee", "cc", "ff") => "aa bbffdd ee");
     t!(replace_space_dash_test:
