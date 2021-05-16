@@ -15,7 +15,7 @@ use tracing::{span, Level};
 fn main() {
     let span = span!(Level::TRACE, "main");
     let _guard = span.enter();
-    
+
     let config = Config::new().with_args().unwrap_or_else(|error| {
         eprintln!("{}", error);
         process::exit(1)

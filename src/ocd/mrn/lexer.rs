@@ -138,7 +138,7 @@ impl Tokenizer {
     ) -> Result<Vec<Token>, Box<dyn Error>> {
         let span = span!(Level::TRACE, "lexer");
         let _guard = span.enter();
-        
+
         for c in input.chars() {
             match self.state {
                 TokenizerState::Init => self.state_init(config, c),
