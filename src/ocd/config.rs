@@ -22,10 +22,7 @@ pub enum Verbosity {
 
 impl Verbosity {
     pub fn is_silent(self) -> bool {
-        match self {
-            Verbosity::Silent => true,
-            _ => false,
-        }
+        matches!(self, Verbosity::Silent)
     }
 }
 

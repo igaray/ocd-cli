@@ -87,18 +87,13 @@ impl MassRenameConfig {
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
         fn glob_value(glob: Option<&str>) -> Option<String> {
-            match glob {
-                Some(glob_input) => Some(String::from(glob_input)),
-                None => None,
-            }
+            glob.map(String::from)
         }
 
         fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
-            let rules = matches.value_of("rules");
-            match rules {
-                Some(rules_input) => Some(rules_input.to_string()),
-                None => None,
-            }
+            matches
+                .value_of("rules")
+                .map(|rules_input| rules_input.to_string())
         }
 
         MassRenameConfig {
@@ -518,8 +513,8 @@ fn apply_pattern_match(
 
     // println!("florbs in match pattern: {:?}", florbs);
     let mut match_pattern = String::from(match_pattern);
-    match_pattern.insert_str(0, "^");
-    match_pattern.push_str("$");
+    match_pattern.insert(0, '^');
+    match_pattern.push('$');
     let match_pattern = match_pattern.replace(".", r"\.");
     let match_pattern = match_pattern.replace("[", r"\[");
     let match_pattern = match_pattern.replace("]", r"\]");
@@ -650,9 +645,9 @@ fn apply_pattern_match(
                         // let content = date_capture.get(ci).unwrap().as_str();
                         let mut content = String::new();
                         content.push_str(&year_text);
-                        content.push_str("-");
+                        content.push('-');
                         content.push_str(&month_text);
-                        content.push_str("-");
+                        content.push('-');
                         content.push_str(&day_text);
                         // println!("  content: {:?}", content);
                         replace_pattern = replace_pattern.replace(&mark, &content);

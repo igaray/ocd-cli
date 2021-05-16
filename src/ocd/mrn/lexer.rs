@@ -70,6 +70,7 @@ impl Display for TokenizerError {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 enum TokenizerState {
     Init,
     Error,
@@ -206,7 +207,7 @@ impl Tokenizer {
                     return Err(Box::new(TokenizerError {
                         kind: TokenizerErrorKind::ParseIntError,
                         state: TokenizerState::Number,
-                        msg: String::from(format!("Error: unable to read number: {:?}", err)),
+                        msg: format!("Error: unable to read number: {:?}", err),
                     }))
                 }
             },
