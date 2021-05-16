@@ -57,7 +57,7 @@ pub fn undo_script(verbosity: Verbosity) {
     println!("Creating undo script.");
 }
 
-pub fn file_move(verbosity: Verbosity, src: &Path, dst: &PathBuf) {
+pub fn file_move(verbosity: Verbosity, src: &Path, dst: &Path) {
     if verbosity.is_silent() {
         return;
     }
