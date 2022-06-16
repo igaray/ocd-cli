@@ -50,7 +50,7 @@ impl Config {
         let ocd_matches = app.get_matches();
 
         match ocd_matches.subcommand() {
-            ("mrn", Some(subcommand_matches)) => {
+            Some(("mrn", subcommand_matches)) => {
                 let subcommand_config = MassRenameConfig::new().with_args(subcommand_matches);
                 let subcommand = Some(Command::MassRename {
                     config: subcommand_config,
@@ -58,7 +58,7 @@ impl Config {
                 let config = Config { subcommand };
                 Ok(config)
             }
-            ("tss", Some(subcommand_matches)) => {
+            Some(("tss", subcommand_matches)) => {
                 let subcommand_config = TimeStampSortConfig::new().with_args(subcommand_matches);
                 let subcommand = Some(Command::TimeStampSort {
                     config: subcommand_config,
@@ -66,7 +66,7 @@ impl Config {
                 let config = Config { subcommand };
                 Ok(config)
             }
-            (_, Some(_)) => Err(String::from("Unknown command supplied.")),
+            Some((_, _)) => Err(String::from("Unknown command supplied.")),
             _ => Err(String::from("No command supplied.")),
         }
     }

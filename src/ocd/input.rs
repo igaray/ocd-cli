@@ -1,8 +1,8 @@
-use dialoguer::Confirmation;
+use dialoguer::Confirm;
 
 pub fn user_confirm() -> bool {
-    Confirmation::new()
-        .with_text("Do you want to continue?")
+    Confirm::new()
+        .with_prompt("Do you want to continue?")
         .interact()
         .unwrap_or(false)
 }
