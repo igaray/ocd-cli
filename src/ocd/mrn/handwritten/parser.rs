@@ -1,10 +1,13 @@
-use crate::ocd::mrn::lexer::Token;
+/*
+use crate::ocd::mrn::handwritten::lexer::Token;
 use crate::ocd::mrn::{Position, Rule};
 
 pub fn parse(
-    _config: &crate::ocd::mrn::MassRenameConfig,
-    tokens: &[crate::ocd::mrn::lexer::Token],
+    config: &crate::ocd::mrn::MassRenameConfig,
+    input: &str
 ) -> Result<Vec<Rule>, String> {
+    let tokens = crate::ocd::mrn::handwritten::lexer::tokenize(&config, input).unwrap();
+
     let mut rules = Vec::new();
     match tokens.len() {
         0 => Ok(rules),
@@ -411,8 +414,8 @@ fn parse_replace<'a, 'b>(
 
 #[cfg(test)]
 mod test {
-    use crate::ocd::mrn::lexer::tokenize;
-    use crate::ocd::mrn::parser::parse;
+    use crate::ocd::mrn::handwritten::lexer::tokenize;
+    use crate::ocd::mrn::handwritten::parser::parse;
     use crate::ocd::mrn::MassRenameConfig;
     use crate::ocd::mrn::{Position, Rule};
 
@@ -814,3 +817,5 @@ mod test {
         );
     }
 }
+
+ */

@@ -1,0 +1,62 @@
+use std::str::FromStr;
+use crate::ocd::mrn::command::{Opcode, Position, ReplaceArg};
+
+grammar;
+
+Comma<T>: Vec<T> = { // (0)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (1)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub Program = Comma<Operation>;
+
+Operation: Opcode = {
+    "s" => Opcode::Sanitize,
+    "cl" => Opcode::CaseLower,
+    "cu" => Opcode::CaseUpper,
+    "ct" => Opcode::CaseTitle,
+    "cs" => Opcode::CaseSentence,
+    "jc" => Opcode::JoinCamel,
+    "js" => Opcode::JoinSnake,
+    "jk" => Opcode::JoinKebab,
+    "sc" => Opcode::SplitCamel,
+    "ss" => Opcode::SplitSnake,
+    "sk" => Opcode::SplitKebab,
+    "rdp" => Opcode::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Period },
+    "rds" => Opcode::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Space },
+    "rdu" => Opcode::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Underscore },
+    "rpd" => Opcode::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Dash },
+    "rps" => Opcode::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Space },
+    "rpu" => Opcode::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Underscore },
+    "rsd" => Opcode::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Dash },
+    "rsp" => Opcode::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Period },
+    "rsu" => Opcode::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Underscore },
+    "rud" => Opcode::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Dash },
+    "rup" => Opcode::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Period },
+    "rus" => Opcode::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Space },
+    "r" <p:StringValue> <r:StringValue> => Opcode::Replace{ pattern: ReplaceArg::Text(p), replace: ReplaceArg::Text(r) },
+    "i" <p:Position> <s:StringValue> => Opcode::Insert{position: p, text: s},
+    "d" <f:Index> <t:Position> => Opcode::Delete{from: f, to: t},
+    "p" <p:StringValue> <r:StringValue> => Opcode::PatternMatch{ pattern: p, replace: r },
+    "ea" <e:StringValue> => Opcode::ExtensionAdd(e),
+    "er" => Opcode::ExtensionRemove,
+    "iro" => Opcode::InteractiveReOrder,
+}
+
+Position: Position = {
+    "end" => Position::End,
+    <i:Index> => Position::Index(i),
+}
+
+Index: usize = {
+    r"[0-9]+" => usize::from_str(<>).unwrap()
+};
+
+StringValue: String = {
+    <value: r"'[^']*'"> => value.trim_matches('\'').to_string(),
+};

@@ -1,3 +1,4 @@
+/*
 use dialoguer::Confirm;
 
 pub fn user_confirm() -> bool {
@@ -6,3 +7,5 @@ pub fn user_confirm() -> bool {
         .interact()
         .unwrap_or(false)
 }
+
+ */

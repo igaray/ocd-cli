@@ -1,4 +1,6 @@
-use crate::ocd::config::{directory_value, verbosity_value, Verbosity};
+// use crate::ocd::config::Verbosity;
+// use crate::ocd::config::verbosity_value;
+// use crate::ocd::config::directory_value;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::BTreeMap;
@@ -6,43 +8,16 @@ use std::error::Error;
 use std::fs;
 use std::io;
 use std::option;
-use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
+use std::path::Path; 
+use std::path::PathBuf;
+use walkdir::DirEntry;
+use walkdir::WalkDir;
 
-#[derive(Clone, Debug)]
-pub struct TimeStampSortConfig {
-    pub verbosity: Verbosity,
-    pub dir: PathBuf,
-    pub dryrun: bool,
-    pub undo: bool,
-    pub yes: bool,
-}
+pub fn run(config: &crate::Cli) -> Result<(), Box<dyn Error>> {
+    println!("{:#?}", config);
 
-impl TimeStampSortConfig {
-    pub fn new() -> TimeStampSortConfig {
-        TimeStampSortConfig {
-            verbosity: Verbosity::Low,
-            dir: PathBuf::new(),
-            dryrun: true,
-            undo: false,
-            yes: false,
-        }
-    }
-
-    pub fn with_args(&self, matches: &clap::ArgMatches) -> TimeStampSortConfig {
-        TimeStampSortConfig {
-            verbosity: verbosity_value(matches),
-            dir: directory_value(matches.value_of("dir").unwrap()),
-            dryrun: matches.is_present("dry-run"),
-            undo: matches.is_present("undo"),
-            yes: matches.is_present("yes"),
-        }
-    }
-}
-
-pub fn run(config: &TimeStampSortConfig) -> Result<(), Box<dyn Error>> {
-    if !config.dryrun && config.undo {
-        crate::ocd::output::undo_script(config.verbosity);
+    if !config.dry_run && config.undo {
+        println!("creating undo file");
         // TODO: implement undo
     }
 
@@ -56,7 +31,8 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if config.yes || crate::ocd::input::user_confirm() {
+    // if config.yes || crate::ocd::input::user_confirm() {
+    if config.yes {
         for (src, dst) in files {
             create_dir_and_move_file(config, src, dst)?;
         }
@@ -66,7 +42,7 @@ pub fn run(config: &TimeStampSortConfig) -> Result<(), Box<dyn Error>> {
 }
 
 fn insert_if_timestamped(
-    config: &TimeStampSortConfig,
+    config: &crate::Cli,
     files: &mut BTreeMap<PathBuf, PathBuf>,
     entry: DirEntry,
 ) {
@@ -79,7 +55,7 @@ fn insert_if_timestamped(
 }
 
 fn create_dir_and_move_file(
-    config: &TimeStampSortConfig,
+    config: &crate::Cli,
     file: PathBuf,
     destination: PathBuf,
 ) -> Result<(), Box<dyn Error>> {
@@ -89,18 +65,13 @@ fn create_dir_and_move_file(
 }
 
 fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
-    // let file = std::fs::File::open(file_name).unwrap();
-    // let reader = exif::Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
-    // for f in reader.fields() {
-    //     f.tag, f.thumbnail, f.value.display_as(f.tag));
-    // }
     file_name
         .to_str()
         .and_then(date)
         .map(|(year, month, day)| base_dir.join(format!("{}-{}-{}", year, month, day)))
 }
 
-fn date(filename: &str) -> Option<(&str, &str, &str)> {
+ fn date(filename: &str) -> Option<(&str, &str, &str)> {
     lazy_static! {
         // YYYY?MM?DD or YYYYMMDD,
         // where YYYY in [1000-2999], MM in [01-12], DD in [01-31]
@@ -114,8 +85,8 @@ fn date(filename: &str) -> Option<(&str, &str, &str)> {
     })
 }
 
-fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Result<()> {
-    if !config.dryrun {
+fn create_directory(config: &crate::Cli, directory: &Path) -> io::Result<()> {
+    if !config.dry_run {
         let mut full_path = PathBuf::new();
         full_path.push(directory);
         match fs::create_dir(&full_path) {
@@ -129,14 +100,14 @@ fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Resul
     Ok(())
 }
 
-fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Result<()> {
+fn move_file(config: &crate::Cli, from: &Path, dest: &Path) -> io::Result<()> {
     let mut to = PathBuf::new();
     to.push(dest);
     to.push(from.file_name().unwrap());
 
-    crate::ocd::output::file_move(config.verbosity, from, &to);
+    // crate::ocd::output::file_move(config.verbosity, from, &to);
 
-    if !config.dryrun {
+    if !config.dry_run {
         if config.undo {
             // TODO implement undo script
         }

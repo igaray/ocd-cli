@@ -1,3 +1,4 @@
+/*
 use crate::ocd::mrn::MassRenameConfig;
 use std::fmt;
 use std::fmt::Display;
@@ -412,7 +413,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Init*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*Init*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -479,7 +480,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Comma*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*Comma*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -544,7 +545,7 @@ impl Tokenizer {
                 self.state = TokenizerState::U;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*Space*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*Space*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -573,10 +574,10 @@ impl Tokenizer {
                     self.state = TokenizerState::Comma;
                 }
                 Err(_err) => {
-                    crate::ocd::output::mrn_lexer_error(
-                        config.verbosity,
-                        format!("*Number* err: {}", _err).as_str(),
-                    );
+                    // crate::ocd::output::mrn_lexer_error(
+                    //     config.verbosity,
+                    //     format!("*Number* err: {}", _err).as_str(),
+                    // );
                     self.state = TokenizerState::Error;
                 }
             },
@@ -586,10 +587,10 @@ impl Tokenizer {
                     self.state = TokenizerState::Space;
                 }
                 Err(err) => {
-                    crate::ocd::output::mrn_lexer_error(
-                        config.verbosity,
-                        format!("*Number* err: {}", err).as_str(),
-                    );
+                    // crate::ocd::output::mrn_lexer_error(
+                    //     config.verbosity,
+                    //     format!("*Number* err: {}", err).as_str(),
+                    // );
                     self.state = TokenizerState::Error;
                 }
             },
@@ -598,10 +599,10 @@ impl Tokenizer {
                 self.state = TokenizerState::Number;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(
-                    config.verbosity,
-                    format!("*Number* c: {}", c).as_str(),
-                );
+                // crate::ocd::output::mrn_lexer_error(
+                //     config.verbosity,
+                //     format!("*Number* c: {}", c).as_str(),
+                // );
                 self.state = TokenizerState::Error;
             }
         }
@@ -613,7 +614,7 @@ impl Tokenizer {
                 self.state = TokenizerState::CC;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*C*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*C*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -628,7 +629,7 @@ impl Tokenizer {
                 self.state = TokenizerState::CCS;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*CC*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*CC*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -662,7 +663,7 @@ impl Tokenizer {
                 self.state = TokenizerState::DU;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*D*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*D*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -692,7 +693,7 @@ impl Tokenizer {
                 self.state = TokenizerState::EN;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*E*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*E*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -712,7 +713,7 @@ impl Tokenizer {
                 self.state = TokenizerState::END;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*EN*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*EN*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -739,7 +740,7 @@ impl Tokenizer {
                 self.state = TokenizerState::IT;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*I*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*I*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -759,7 +760,7 @@ impl Tokenizer {
                 self.state = TokenizerState::LC;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*L*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*L*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -789,7 +790,7 @@ impl Tokenizer {
                 self.state = TokenizerState::PU;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*P*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*P*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -834,7 +835,7 @@ impl Tokenizer {
                 self.state = TokenizerState::SU;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*S*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*S*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -862,7 +863,7 @@ impl Tokenizer {
                 self.state = TokenizerState::TC;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*T*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*T*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -887,7 +888,7 @@ impl Tokenizer {
                 self.state = TokenizerState::US;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, "*U*");
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, "*U*");
                 self.state = TokenizerState::Error;
             }
         }
@@ -920,7 +921,7 @@ impl Tokenizer {
                 self.state = TokenizerState::Space;
             }
             _ => {
-                crate::ocd::output::mrn_lexer_error(config.verbosity, error_msg);
+                // crate::ocd::output::mrn_lexer_error(config.verbosity, error_msg);
                 self.state = TokenizerState::Error;
             }
         }
@@ -1356,3 +1357,4 @@ mod test {
         );
     }
 }
+*/

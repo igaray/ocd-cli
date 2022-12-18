@@ -9,7 +9,8 @@ subcommands:
                 about: "Mass ReName"
                 args:
                         - verbosity:
-                                multiple: true
+                                takes_value: false
+                                multiple_values: true
                                 short: v
                                 help: >
                                     Sets the verbosity level. Default is low, 
@@ -24,6 +25,11 @@ subcommands:
                                 short: d
                                 long: dir
                                 help: "Run inside a given directory."
+                        - parser:
+                                takes_value: true
+                                possible_values: ["handwritten", "lalrpop"]
+                                default_value: lalrpop
+                                help: Specifies with parser to use.
                         - mode:
                                 takes_value: true
                                 possible_values: ["a", "d", "f"]
@@ -94,33 +100,3 @@ subcommands:
                                      p <match> <pattern>   Pattern match
                                      ip                    Interactive pattern match
                                      it                    Interactive tokenize
-        - tss:
-                about: "Time Stamp Sort"
-                args:
-                        - silent:
-                                long: silent
-                                help: "Silences all output."
-                        - dir:
-                                takes_value: true
-                                default_value: "./"
-                                short: d
-                                long: dir
-                                help: "Run inside a given directory."
-                        - dry-run:
-                                long: dry-run
-                                help: "Do not effect any changes on the filesystem."
-                        - undo:
-                                short: u
-                                long: undo
-                                help: Create undo script.
-                        - yes:
-                                long: yes
-                                help: >
-                                    Do not ask for confirmation. 
-                                    Useful for non-interactive batch scripts.
-        # - id3:
-        #         about: "Fix id3 tags"
-        # - lphc:
-        #         about: "Elephant client"
-        # - lphs:
-        #         about: "Elephant server"

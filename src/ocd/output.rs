@@ -1,5 +1,6 @@
+/*
 use crate::ocd::config::Verbosity;
-use crate::ocd::mrn::lexer::Token;
+use crate::ocd::mrn::handwritten::lexer::Token;
 use crate::ocd::mrn::Rule;
 
 use std::collections::BTreeMap;
@@ -18,12 +19,12 @@ pub fn mrn_state(
     rules: &[Rule],
     files: &[PathBuf],
 ) {
-    if let Verbosity::Debug = config.verbosity {
-        println!("{:#?}", &config);
-        println!("Tokens:\n{:#?}", &tokens);
-        println!("Rules:\n{:#?}", &rules);
-        println!("Files:\n{:#?}", &files);
-    }
+    // if let Verbosity::Debug = config.verbosity {
+    //     println!("{:#?}", &config);
+    //     println!("Tokens:\n{:#?}", &tokens);
+    //     println!("Rules:\n{:#?}", &rules);
+    //     println!("Files:\n{:#?}", &files);
+    // }
 }
 
 pub fn mrn_pattern_match(
@@ -63,3 +64,5 @@ pub fn file_move(verbosity: Verbosity, src: &Path, dst: &Path) {
     }
     println!("Moving {:?}\n    to {:?}", src, dst);
 }
+
+*/

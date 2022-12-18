@@ -1,22 +1,30 @@
-extern crate clap;
-extern crate dialoguer;
-extern crate glob;
-extern crate walkdir;
+/*
+// extern crate clap;
+// extern crate dialoguer;
+// extern crate glob;
+// extern crate walkdir;
 
-pub mod lexer;
-pub mod parser;
+// use self::walkdir::WalkDir;
+// use crate::ocd::config::mode_value;
+// use crate::ocd::config::Verbosity;
+// use crate::ocd::config::Mode;
+// use crate::ocd::config::verbosity_value;
+// use crate::ocd::config::directory_value;
+// use lazy_static::lazy_static;
+// use regex::Regex;
+// use clap::Args;
+// use std::collections::BTreeMap;
+// use std::error::Error;
+// use std::fs;
+// use std::fs::File;
+// use std::io::Write;
+// use std::path::PathBuf;
+// use std::process::Command;
 
-use self::walkdir::WalkDir;
-use crate::ocd::config::{directory_value, mode_value, verbosity_value, Mode, Verbosity};
-use lazy_static::lazy_static;
-use regex::Regex;
-use std::collections::BTreeMap;
-use std::error::Error;
-use std::fs;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::Command;
+/* pub mod command;
+pub mod handwritten;
+pub mod lalrpop;
+ */
 
 #[derive(Debug, PartialEq)]
 pub enum Position {
@@ -56,8 +64,17 @@ pub enum Rule {
 }
 
 #[derive(Clone, Debug)]
+pub enum MassRenameParser {
+    Handwritten,
+    Lalrpop,
+}
+
+#[derive(Clone, Debug, Args)]
 pub struct MassRenameConfig {
+    #[clap(value_parser)]
+    pub test: Option<String>,
     pub verbosity: Verbosity,
+    pub parser: MassRenameParser,
     pub mode: Mode,
     pub dir: PathBuf,
     pub dryrun: bool,
@@ -72,7 +89,9 @@ pub struct MassRenameConfig {
 impl MassRenameConfig {
     pub fn new() -> MassRenameConfig {
         MassRenameConfig {
+            test: Some(String::from("test")),
             verbosity: Verbosity::Low,
+            parser: MassRenameParser::Lalrpop,
             mode: Mode::Files,
             dir: PathBuf::new(),
             dryrun: true,
@@ -86,6 +105,15 @@ impl MassRenameConfig {
     }
 
     pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
+
+        fn parser_value(parser: &str) -> MassRenameParser {
+            match parser {
+                "handwritten" => MassRenameParser::Handwritten,
+                "lalrpop" => MassRenameParser::Lalrpop,
+                _ => MassRenameParser::Lalrpop,
+            }
+        }
+
         fn glob_value(glob: Option<&str>) -> Option<String> {
             glob.map(String::from)
         }
@@ -97,7 +125,9 @@ impl MassRenameConfig {
         }
 
         MassRenameConfig {
+            test: Some(String::from("test")),
             verbosity: verbosity_value(matches),
+            parser: parser_value(matches.value_of("parser").unwrap()),
             mode: mode_value(matches.value_of("mode").unwrap()),
             dir: directory_value(matches.value_of("dir").unwrap()),
             dryrun: matches.is_present("dry-run"),
@@ -112,12 +142,12 @@ impl MassRenameConfig {
 }
 
 pub fn run(config: &MassRenameConfig) -> Result<(), Box<dyn Error>> {
-    let rules_raw = config.rules_raw.clone().unwrap();
-    let tokens = crate::ocd::mrn::lexer::tokenize(&config, &rules_raw)?;
-    let rules = crate::ocd::mrn::parser::parse(&config, &tokens)?;
     let files = entries(&config)?;
 
-    crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
+    let rules = match config.parser {
+        MassRenameParser::Handwritten => parse_with_handwritten(config)?,
+        MassRenameParser::Lalrpop => parse_with_lalrpop(config)?,
+    };
 
     let buffer = apply_rules(&config, &rules, &files)?;
 
@@ -129,6 +159,28 @@ pub fn run(config: &MassRenameConfig) -> Result<(), Box<dyn Error>> {
         execute_rules(&config, &buffer)?
     }
     Ok(())
+}
+
+fn parse_with_handwritten(
+    config: &crate::ocd::mrn::MassRenameConfig
+) -> Result<Vec<Rule>, String> {
+    dbg!("parsing with handwritten parser");
+    let rules_raw = config.rules_raw.clone().unwrap();
+    let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
+    // crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
+    rules
+}
+
+fn parse_with_lalrpop(
+    _config: &crate::ocd::mrn::MassRenameConfig
+) -> Result<Vec<Rule>, String> {
+    dbg!("parsing with lalrpop parser");
+    let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
+    let program = parser
+        .parse("rdp,rds,rdu,rpd,rps,rpu,rsd,rsp,rsu,rud,rup,rus")
+        .unwrap();
+    dbg!(program);
+    Ok(vec![])
 }
 
 fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
@@ -716,54 +768,54 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
 }
 
 fn create_undo_script(config: &MassRenameConfig, buffer: &BTreeMap<PathBuf, PathBuf>) {
-    if !config.verbosity.is_silent() {
-        println!("Creating undo script.");
-        match File::create("./undo.sh") {
-            Ok(mut output_file) => {
-                for (src, dst) in buffer {
-                    let result = if config.git {
-                        writeln!(output_file, "git mv {:?} {:?}", dst, src)
-                    } else {
-                        writeln!(output_file, "mv -i {:?} {:?}", dst, src)
-                    };
-                    if let Err(reason) = result {
-                        eprintln!("Error writing to undo file: {:?}", reason);
-                    }
-                }
-            }
-            Err(reason) => {
-                eprintln!("Error creating undo file: {:?}", reason);
-            }
-        }
-    }
+    // if !config.verbosity.is_silent() {
+    //     println!("Creating undo script.");
+    //     match File::create("./undo.sh") {
+    //         Ok(mut output_file) => {
+    //             for (src, dst) in buffer {
+    //                 let result = if config.git {
+    //                     writeln!(output_file, "git mv {:?} {:?}", dst, src)
+    //                 } else {
+    //                     writeln!(output_file, "mv -i {:?} {:?}", dst, src)
+    //                 };
+    //                 if let Err(reason) = result {
+    //                     eprintln!("Error writing to undo file: {:?}", reason);
+    //                 }
+    //             }
+    //         }
+    //         Err(reason) => {
+    //             eprintln!("Error creating undo file: {:?}", reason);
+    //         }
+    //     }
+    // }
 }
 
 fn execute_rules(
     config: &MassRenameConfig,
     buffer: &BTreeMap<PathBuf, PathBuf>,
 ) -> Result<(), String> {
-    for (src, dst) in buffer {
-        crate::ocd::output::file_move(config.verbosity, src, dst);
-        if !config.dryrun {
-            if config.git {
-                let src = src.to_str().unwrap();
-                let dst = dst.to_str().unwrap();
-                let _output = Command::new("git")
-                    .args(&["mv", src, dst])
-                    .output()
-                    .expect("Error invoking git.");
-            // TODO: do something with output
-            } else {
-                match fs::rename(src, dst) {
-                    Ok(_) => {}
-                    Err(reason) => {
-                        eprintln!("Error moving file: {:?}", reason);
-                        return Err(String::from("Error moving file."));
-                    }
-                }
-            }
-        }
-    }
+    // for (src, dst) in buffer {
+    //     crate::ocd::output::file_move(config.verbosity, src, dst);
+    //     if !config.dryrun {
+    //         if config.git {
+    //             let src = src.to_str().unwrap();
+    //             let dst = dst.to_str().unwrap();
+    //             let _output = Command::new("git")
+    //                 .args(&["mv", src, dst])
+    //                 .output()
+    //                 .expect("Error invoking git.");
+    //         // TODO: do something with output
+    //         } else {
+    //             match fs::rename(src, dst) {
+    //                 Ok(_) => {}
+    //                 Err(reason) => {
+    //                     eprintln!("Error moving file: {:?}", reason);
+    //                     return Err(String::from("Error moving file."));
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     Ok(())
 }
 
@@ -900,3 +952,5 @@ mod test {
     t!(delete_test_3:
         apply_delete("aa bb cc", 0, &Position::Index { value: 42 }) => "");
 }
+
+ */
