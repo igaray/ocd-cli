@@ -20,28 +20,26 @@ name = "ocd"
 path = "src/main.rs"
 
 [build-dependencies]
-# Add a build-time dependency on the lalrpop library:
-# If you are supplying your own external lexer you can disable default features so that the built-in lexer feature is not included
-# lalrpop = { version = "0.19", default-features = false }
-lalrpop = { version = "0.19", features = ["lexer"] }
+lalrpop = { version = "*", features = ["lexer"] }
 
 [dependencies]
-tracing = "*"
+chrono = "*"
 clap = {version = "*", features = ["derive"]}
+dateparser = "*"
 dialoguer = "*"
-kamadak-exif = "*"
 glob = "*"
-# The generated code depends on lalrpop-util.
-# The generated tokenizer depends on the regex crate.
-# (If you write your own tokenizer, or already have the regex crate, you can skip this dependency.)
-lalrpop-util = { version = "0.19", features = ["lexer"] }
+kamadak-exif = "*"
+lalrpop-util = { version = "*", features = ["lexer"] }
 lazy_static = "*"
 regex = "*"
-walkdir = "*"
-unicode-segmentation = "*"
 remain = "*"
-chrono = "*"
-voca_rs = "*"
+tracing = "*"
+unicode-segmentation = "*"
+walkdir = "*"
+
+
+# chrono = "*"
+# voca_rs = "*"
 # case = "1.0.0"
 # heck = "0.3.1"
 # Inflector = "0.11.4"

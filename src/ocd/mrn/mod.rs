@@ -1,189 +1,198 @@
-/*
-// extern crate clap;
-// extern crate dialoguer;
-// extern crate glob;
-// extern crate walkdir;
+//! Mass Re-Name
+//!
+//! This command implements a small interpreter with a number of shortcuts to common filename manipulation actions.
 
-// use self::walkdir::WalkDir;
-// use crate::ocd::config::mode_value;
-// use crate::ocd::config::Verbosity;
-// use crate::ocd::config::Mode;
-// use crate::ocd::config::verbosity_value;
-// use crate::ocd::config::directory_value;
-// use lazy_static::lazy_static;
-// use regex::Regex;
-// use clap::Args;
-// use std::collections::BTreeMap;
-// use std::error::Error;
-// use std::fs;
-// use std::fs::File;
-// use std::io::Write;
-// use std::path::PathBuf;
-// use std::process::Command;
+extern crate lazy_static;
 
-/* pub mod command;
+use crate::ocd::mrn::program::Instruction;
+use crate::ocd::mrn::program::Position;
+use crate::ocd::mrn::program::ReplaceArg;
+use crate::ocd::Mode;
+use crate::ocd::Speaker;
+use crate::ocd::Verbosity;
+use clap::Args;
+use clap::ValueEnum;
+use lazy_static::lazy_static;
+use regex::Regex;
+use std::collections::BTreeMap;
+use std::error::Error;
+use std::fs;
+use std::path::PathBuf;
+use walkdir::WalkDir;
+
 pub mod handwritten;
 pub mod lalrpop;
- */
+pub mod program;
 
-#[derive(Debug, PartialEq)]
-pub enum Position {
-    End,
-    Index { value: usize },
+/// Arguments to the Mass Re-Name
+#[derive(Clone, Debug, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+pub struct MassRenameArgs {
+    #[arg(short = 'v')]
+    #[arg(action = clap::ArgAction::Count)]
+    #[arg(help = r#"Sets the verbosity level. 
+Default is low, one medium, two high, three or more debug."#)]
+    verbosity: u8,
+
+    #[arg(long, help = "Silences all output.")]
+    silent: bool,
+
+    #[arg(short = 'd')]
+    #[arg(long)]
+    #[arg(default_value = "./")]
+    #[arg(help = "Run inside a given directory.")]
+    dir: PathBuf,
+
+    #[arg(
+        long = "dry-run",
+        help = "Do not effect any changes on the filesystem."
+    )]
+    dry_run: bool,
+
+    #[arg(short = 'u', long, help = "Create undo script.")]
+    undo: bool,
+
+    #[arg(long, help = "Do not ask for confirmation.")]
+    yes: bool,
+
+    #[arg(long, help = "Rename files by calling `git mv`")]
+    git: bool,
+
+    #[arg(short = 'c')]
+    #[arg(long)]
+    #[arg(
+        help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`. 
+If --dir is specified as well it will be concatenated with the glob pattern. 
+If --recurse is also specified it will be ignored."#
+    )]
+    glob: Option<String>,
+
+    #[arg(short = 'm')]
+    #[arg(long)]
+    #[arg(default_value = "files")]
+    #[arg(help = "Specified whether the rules are applied to directories, files or all.")]
+    mode: Mode,
+
+    #[arg(
+        long,
+        default_value = "lalrpop",
+        help = "Specifies with parser to use."
+    )]
+    parser: crate::ocd::mrn::MassRenameParser,
+
+    #[arg(short = 'r', long, help = "Recurse directories.")]
+    recurse: bool,
+
+    #[arg(help = r#"The rewrite rules to apply to filenames.
+The value is a comma-separated list of the following rules:
+lc                    Lower case
+uc                    Upper case
+tc                    Title case
+sc                    Sentence case
+ccj                   Camel case join
+ccs                   Camel case split
+i <text> <position>   Insert (<position> may be a positive integer or the keyword end)
+d <from> <to>         Delete (<from> may be a positive integer, <to> may be a positive integer or the keyword end)
+s                     Sanitize
+r <match> <text>      Replace (<match> and <text> are double-quote delimited strings)
+sd                    Substitute space dash
+sp                    Substitute space period
+su                    Substitute space underscore
+dp                    Substitute dash period
+ds                    Substitute dash space
+du                    Substitute dash underscore
+pd                    Substitute period dash
+ps                    Substitute period space
+pu                    Substitute period under
+ud                    Substitute underscore dash
+up                    Substitute underscore period
+us                    Substitute underscore space
+ea <extension>        Extension add
+er                    Extension remove
+p <match> <pattern>   Pattern match
+ip                    Interactive pattern match
+it                    Interactive tokenize
+    "#)]
+    input: String,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Rule {
-    LowerCase,
-    UpperCase,
-    TitleCase,
-    SentenceCase,
-    CamelCaseJoin,
-    CamelCaseSplit,
-    Replace { pattern: String, replace: String },
-    ReplaceSpaceDash,
-    ReplaceSpacePeriod,
-    ReplaceSpaceUnder,
-    ReplaceDashPeriod,
-    ReplaceDashSpace,
-    ReplaceDashUnder,
-    ReplacePeriodDash,
-    ReplacePeriodSpace,
-    ReplacePeriodUnder,
-    ReplaceUnderDash,
-    ReplaceUnderPeriod,
-    ReplaceUnderSpace,
-    Sanitize,
-    PatternMatch { pattern: String, replace: String },
-    ExtensionAdd { extension: String },
-    ExtensionRemove,
-    Insert { text: String, position: Position },
-    InteractiveTokenize,
-    InteractivePatternMatch,
-    Delete { from: usize, to: Position },
+impl Speaker for MassRenameArgs {
+    fn verbosity(&self) -> Verbosity {
+        crate::ocd::Verbosity::new(self.silent, self.verbosity)
+    }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum MassRenameParser {
     Handwritten,
     Lalrpop,
 }
 
-#[derive(Clone, Debug, Args)]
-pub struct MassRenameConfig {
-    #[clap(value_parser)]
-    pub test: Option<String>,
-    pub verbosity: Verbosity,
-    pub parser: MassRenameParser,
-    pub mode: Mode,
-    pub dir: PathBuf,
-    pub dryrun: bool,
-    pub git: bool,
-    pub recurse: bool,
-    pub undo: bool,
-    pub yes: bool,
-    pub glob: Option<String>,
-    pub rules_raw: Option<String>,
-}
+type FilenameBuffer = BTreeMap<PathBuf, PathBuf>;
 
-impl MassRenameConfig {
-    pub fn new() -> MassRenameConfig {
-        MassRenameConfig {
-            test: Some(String::from("test")),
-            verbosity: Verbosity::Low,
-            parser: MassRenameParser::Lalrpop,
-            mode: Mode::Files,
-            dir: PathBuf::new(),
-            dryrun: true,
-            git: false,
-            recurse: false,
-            undo: false,
-            yes: false,
-            glob: None,
-            rules_raw: None,
+/*
+impl FilenameBuffer {
+    fn new(files: &[PathBuf]) -> FilenameBuffer {
+        let mut buffer = BTreeMap::new();
+        for file in files {
+            buffer.insert(file.clone(), file.clone());
         }
+        buffer
     }
 
-    pub fn with_args(&self, matches: &clap::ArgMatches) -> MassRenameConfig {
-
-        fn parser_value(parser: &str) -> MassRenameParser {
-            match parser {
-                "handwritten" => MassRenameParser::Handwritten,
-                "lalrpop" => MassRenameParser::Lalrpop,
-                _ => MassRenameParser::Lalrpop,
-            }
-        }
-
-        fn glob_value(glob: Option<&str>) -> Option<String> {
-            glob.map(String::from)
-        }
-
-        fn rules_value(matches: &clap::ArgMatches) -> Option<String> {
-            matches
-                .value_of("rules")
-                .map(|rules_input| rules_input.to_string())
-        }
-
-        MassRenameConfig {
-            test: Some(String::from("test")),
-            verbosity: verbosity_value(matches),
-            parser: parser_value(matches.value_of("parser").unwrap()),
-            mode: mode_value(matches.value_of("mode").unwrap()),
-            dir: directory_value(matches.value_of("dir").unwrap()),
-            dryrun: matches.is_present("dry-run"),
-            git: matches.is_present("git"),
-            recurse: matches.is_present("recurse"),
-            undo: matches.is_present("undo"),
-            yes: matches.is_present("yes"),
-            glob: glob_value(matches.value_of("glob")),
-            rules_raw: rules_value(matches),
-        }
+    fn clean(&mut self) {
+        self.retain(|(src, dst)| src != dst)
     }
 }
+*/
 
-pub fn run(config: &MassRenameConfig) -> Result<(), Box<dyn Error>> {
-    let files = entries(&config)?;
+fn new_filenamebuffer(files: &[PathBuf]) -> FilenameBuffer {
+    let mut buffer = BTreeMap::new();
+    for file in files {
+        buffer.insert(file.clone(), file.clone());
+    }
+    buffer
+}
 
-    let rules = match config.parser {
+fn clean_filenamebuffer(buffer: &mut FilenameBuffer) {
+    buffer.retain(|src, dst| src != dst)
+}
+
+pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
+    let files = entries(config)?;
+    let program = match config.parser {
         MassRenameParser::Handwritten => parse_with_handwritten(config)?,
         MassRenameParser::Lalrpop => parse_with_lalrpop(config)?,
     };
+    let buffer = apply_program(&config, &program, &files)?;
 
-    let buffer = apply_rules(&config, &rules, &files)?;
-
-    if !config.dryrun && config.undo {
+    if !config.dry_run && config.undo {
         create_undo_script(config, &buffer);
     }
 
-    if config.yes || crate::ocd::input::user_confirm() {
-        execute_rules(&config, &buffer)?
+    if config.yes || crate::ocd::user_confirm() {
+        execute_program(&config, &buffer)?
     }
     Ok(())
 }
 
 fn parse_with_handwritten(
-    config: &crate::ocd::mrn::MassRenameConfig
-) -> Result<Vec<Rule>, String> {
-    dbg!("parsing with handwritten parser");
-    let rules_raw = config.rules_raw.clone().unwrap();
-    let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
+    _config: &MassRenameArgs,
+) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
+    // let rules_raw = config.rules_raw.clone().unwrap();
+    // let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
     // crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
-    rules
+    // rules
+    Ok(Vec::new())
 }
 
-fn parse_with_lalrpop(
-    _config: &crate::ocd::mrn::MassRenameConfig
-) -> Result<Vec<Rule>, String> {
-    dbg!("parsing with lalrpop parser");
+fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
     let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
-    let program = parser
-        .parse("rdp,rds,rdu,rpd,rps,rpu,rsd,rsp,rsu,rud,rup,rus")
-        .unwrap();
-    dbg!(program);
-    Ok(vec![])
+    let program_result = parser.parse(&config.input)?;
+    Ok(program_result)
 }
 
-fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
+fn entries(config: &MassRenameArgs) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     /*
     recurse | glob | mode
     F       | none | f
@@ -211,11 +220,13 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(err) => return Err(format!("Error while listing files: {:?}", err)),
+                        Err(err) => {
+                            return Err(format!("Error while listing files: {:?}", err).into())
+                        }
                     }
                 }
             }
-            Err(err) => return Err(format!("Error while listing files: {:?}", err)),
+            Err(err) => return Err(format!("Error while listing files: {:?}", err).into()),
         },
         (false, None, Mode::Directories) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -226,11 +237,13 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                                 entries_vec.push(file.path());
                             }
                         }
-                        Err(err) => return Err(format!("Error while listing files: {:?}", err)),
+                        Err(err) => {
+                            return Err(format!("Error while listing files: {:?}", err).into())
+                        }
                     }
                 }
             }
-            Err(err) => return Err(format!("Error while listing files: {:?}", err)),
+            Err(err) => return Err(format!("Error while listing files: {:?}", err).into()),
         },
         (false, None, Mode::All) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -239,11 +252,11 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                         Ok(file) => {
                             entries_vec.push(file.path());
                         }
-                        Err(_err) => return Err(String::from("Error while listing files")),
+                        Err(_err) => return Err(String::from("Error while listing files").into()),
                     }
                 }
             }
-            Err(_err) => return Err(String::from("Error while listing files")),
+            Err(_err) => return Err(String::from("Error while listing files").into()),
         },
         (true, None, Mode::Files) => {
             let iter = WalkDir::new(&config.dir).into_iter();
@@ -254,7 +267,7 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                             entries_vec.push(entry.path().to_path_buf());
                         }
                     }
-                    Err(_err) => return Err(String::from("Error listing files")),
+                    Err(_err) => return Err(String::from("Error listing files").into()),
                 }
             }
         }
@@ -267,7 +280,7 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
                             entries_vec.push(entry.path().to_path_buf());
                         }
                     }
-                    Err(_err) => return Err(String::from("Error listing files")),
+                    Err(_err) => return Err(String::from("Error listing files").into()),
                 }
             }
         }
@@ -308,138 +321,163 @@ fn entries(config: &MassRenameConfig) -> Result<Vec<PathBuf>, String> {
             }
         }
     }
+
     Ok(entries_vec)
 }
 
-fn apply_rules(
-    config: &MassRenameConfig,
-    rules: &[Rule],
+fn apply_program(
+    config: &MassRenameArgs,
+    program: &[crate::ocd::mrn::program::Instruction],
     files: &[PathBuf],
-) -> Result<BTreeMap<PathBuf, PathBuf>, String> {
-    let mut buffer = new_buffer(files);
+) -> Result<FilenameBuffer, Box<dyn Error>> {
+    dbg!(&program);
+    let mut buffer = new_filenamebuffer(files);
 
-    for rule in rules {
+    for instruction in program {
         for (index, (_src, mut dst)) in buffer.iter_mut().enumerate() {
-            apply_rule(index, &rule, &mut dst);
+            apply_instruction(index, &instruction, &mut dst);
         }
     }
-
-    let clean_buffer = clean_buffer(buffer);
-    crate::ocd::output::mrn_result(config.verbosity, &clean_buffer);
-    Ok(clean_buffer)
+    // buffer.clean();
+    clean_filenamebuffer(&mut buffer);
+    print_result(config, &buffer);
+    Ok(buffer)
 }
 
-fn apply_rule(index: usize, rule: &Rule, path: &mut PathBuf) {
+fn print_result(config: &MassRenameArgs, buffer: &BTreeMap<PathBuf, PathBuf>) {
+    if !config.verbosity().is_silent() {
+        println!("Result:");
+        for (src, dst) in buffer {
+            println!("  =");
+            println!("    - {:?}", src);
+            println!("    + {:?}", dst);
+        }
+    }
+}
+
+fn apply_instruction(index: usize, instruction: &Instruction, path: &mut PathBuf) {
+    dbg!(&index, &instruction, &path);
     let filename = path.file_stem().unwrap();
     let filename = filename.to_str().unwrap();
-    match rule {
-        Rule::LowerCase => {
-            let filename = apply_lower_case(filename);
-            rename_file(path, filename);
-        }
-        Rule::UpperCase => {
-            let filename = apply_upper_case(filename);
-            rename_file(path, filename);
-        }
-        Rule::TitleCase => {
-            let filename = apply_title_case(filename);
-            rename_file(path, filename);
-        }
-        Rule::SentenceCase => {
-            let filename = apply_sentence_case(filename);
-            rename_file(path, filename);
-        }
-        Rule::CamelCaseJoin => {
-            let filename = apply_camel_case_join(filename);
-            rename_file(path, filename);
-        }
-        Rule::CamelCaseSplit => {
-            let filename = apply_camel_case_split(filename);
-            rename_file(path, filename);
-        }
-        Rule::Sanitize => {
+    match instruction {
+        Instruction::Sanitize => {
             let filename = apply_sanitize(filename);
             rename_file(path, filename);
         }
-        Rule::Replace { pattern, replace } => {
+        Instruction::CaseLower => {
+            let filename = apply_lower_case(filename);
+            rename_file(path, filename);
+        }
+        Instruction::CaseUpper => {
+            let filename = apply_upper_case(filename);
+            rename_file(path, filename);
+        }
+        Instruction::CaseTitle => {
+            let filename = apply_title_case(filename);
+            rename_file(path, filename);
+        }
+        Instruction::CaseSentence => {
+            let filename = apply_sentence_case(filename);
+            rename_file(path, filename);
+        }
+        Instruction::JoinCamel => {
+            let filename = apply_camel_case_join(filename);
+            rename_file(path, filename);
+        }
+        Instruction::JoinSnake => {}
+        Instruction::JoinKebab => {}
+        Instruction::SplitCamel => {
+            let filename = apply_camel_case_split(filename);
+            rename_file(path, filename);
+        }
+        Instruction::SplitSnake => {}
+        Instruction::SplitKebab => {}
+        Instruction::Replace { pattern, replace } => {
             let filename = apply_replace(filename, pattern, replace);
             rename_file(path, filename);
         }
-        Rule::ReplaceSpaceDash => {
-            let filename = apply_replace(filename, " ", "-");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceSpacePeriod => {
-            let filename = apply_replace(filename, " ", ".");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceSpaceUnder => {
-            let filename = apply_replace(filename, " ", "_");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceDashPeriod => {
-            let filename = apply_replace(filename, "-", ".");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceDashSpace => {
-            let filename = apply_replace(filename, "-", " ");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceDashUnder => {
-            let filename = apply_replace(filename, "-", "_");
-            rename_file(path, filename);
-        }
-        Rule::ReplacePeriodDash => {
-            let filename = apply_replace(filename, ".", "-");
-            rename_file(path, filename);
-        }
-        Rule::ReplacePeriodSpace => {
-            let filename = apply_replace(filename, ".", " ");
-            rename_file(path, filename);
-        }
-        Rule::ReplacePeriodUnder => {
-            let filename = apply_replace(filename, ".", "_");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceUnderDash => {
-            let filename = apply_replace(filename, "_", "-");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceUnderPeriod => {
-            let filename = apply_replace(filename, "_", ".");
-            rename_file(path, filename);
-        }
-        Rule::ReplaceUnderSpace => {
-            let filename = apply_replace(filename, "_", " ");
-            rename_file(path, filename);
-        }
-        Rule::PatternMatch { pattern, replace } => {
-            let filename = apply_pattern_match(index, filename, pattern, replace);
-            rename_file(path, filename);
-        }
-        Rule::ExtensionAdd { extension } => {
-            path.set_extension(extension);
-        }
-        Rule::ExtensionRemove => {
-            path.set_extension("");
-        }
-        Rule::Insert { text, position } => {
+        Instruction::Insert { position, text } => {
             let filename = apply_insert(filename, text, position);
             rename_file(path, filename);
         }
-        Rule::InteractiveTokenize => {
-            let filename = apply_interactive_tokenize(filename);
-            rename_file(path, filename);
-        }
-        Rule::InteractivePatternMatch => {
-            let filename = apply_interactive_pattern_match(filename);
-            rename_file(path, filename);
-        }
-        Rule::Delete { from, to } => {
+        Instruction::Delete { from, to } => {
             let filename = apply_delete(filename, *from, to);
             rename_file(path, filename);
         }
+        Instruction::PatternMatch { pattern, replace } => {
+            let filename = apply_pattern_match(index, filename, pattern, replace);
+            rename_file(path, filename);
+        }
+        Instruction::ExtensionAdd(extension) => {
+            path.set_extension(extension);
+        }
+        Instruction::ExtensionRemove => {
+            path.set_extension("");
+        }
+        Instruction::InteractiveReOrder => {
+            let filename = apply_interactive_reorder(filename);
+            rename_file(path, filename);
+        }
     }
+
+    /*
+        match rule {
+            Rule::ReplaceSpaceDash => {
+                let filename = apply_replace(filename, " ", "-");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceSpacePeriod => {
+                let filename = apply_replace(filename, " ", ".");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceSpaceUnder => {
+                let filename = apply_replace(filename, " ", "_");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceDashPeriod => {
+                let filename = apply_replace(filename, "-", ".");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceDashSpace => {
+                let filename = apply_replace(filename, "-", " ");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceDashUnder => {
+                let filename = apply_replace(filename, "-", "_");
+                rename_file(path, filename);
+            }
+            Rule::ReplacePeriodDash => {
+                let filename = apply_replace(filename, ".", "-");
+                rename_file(path, filename);
+            }
+            Rule::ReplacePeriodSpace => {
+                let filename = apply_replace(filename, ".", " ");
+                rename_file(path, filename);
+            }
+            Rule::ReplacePeriodUnder => {
+                let filename = apply_replace(filename, ".", "_");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceUnderDash => {
+                let filename = apply_replace(filename, "_", "-");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceUnderPeriod => {
+                let filename = apply_replace(filename, "_", ".");
+                rename_file(path, filename);
+            }
+            Rule::ReplaceUnderSpace => {
+                let filename = apply_replace(filename, "_", " ");
+                rename_file(path, filename);
+            }
+            Rule::InteractiveTokenize => {
+            }
+            Rule::InteractivePatternMatch => {
+                let filename = apply_interactive_pattern_match(filename);
+                rename_file(path, filename);
+            }
+        }
+    */
 }
 
 fn apply_lower_case(filename: &str) -> String {
@@ -517,8 +555,8 @@ fn apply_sanitize(filename: &str) -> String {
     all.join(" ")
 }
 
-fn apply_replace(filename: &str, pattern: &str, replace: &str) -> String {
-    filename.replace(pattern, replace)
+fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
+    filename.replace(pattern.as_str(), replace.as_str())
 }
 
 fn apply_pattern_match(
@@ -547,12 +585,7 @@ fn apply_pattern_match(
         }
     }
 
-    crate::ocd::output::mrn_pattern_match(
-        Verbosity::Debug,
-        filename,
-        match_pattern,
-        replace_pattern,
-    );
+    pattern_match(Verbosity::Debug, filename, match_pattern, replace_pattern);
 
     lazy_static! {
         static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
@@ -719,17 +752,13 @@ fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     let mut new = String::from(filename);
     match position {
         Position::End => new.push_str(text),
-        Position::Index { value: index } if index >= &new.len() => new.push_str(text),
-        Position::Index { value: index } => new.insert_str(*index, text),
+        Position::Index(index) if index >= &new.len() => new.push_str(text),
+        Position::Index(index) => new.insert_str(*index, text),
     }
     new
 }
 
-fn apply_interactive_tokenize(_filename: &str) -> String {
-    unimplemented!()
-}
-
-fn apply_interactive_pattern_match(_filename: &str) -> String {
+fn apply_interactive_reorder(_filename: &str) -> String {
     unimplemented!()
 }
 
@@ -754,7 +783,7 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     // filename2
     let to_idx = match *to {
         Position::End => filename.len(),
-        Position::Index { value } => {
+        Position::Index(value) => {
             if value > filename.len() {
                 filename.len()
             } else {
@@ -767,7 +796,7 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     s
 }
 
-fn create_undo_script(config: &MassRenameConfig, buffer: &BTreeMap<PathBuf, PathBuf>) {
+fn create_undo_script(_config: &MassRenameArgs, _buffer: &FilenameBuffer) {
     // if !config.verbosity.is_silent() {
     //     println!("Creating undo script.");
     //     match File::create("./undo.sh") {
@@ -790,10 +819,10 @@ fn create_undo_script(config: &MassRenameConfig, buffer: &BTreeMap<PathBuf, Path
     // }
 }
 
-fn execute_rules(
-    config: &MassRenameConfig,
-    buffer: &BTreeMap<PathBuf, PathBuf>,
-) -> Result<(), String> {
+fn execute_program(
+    _config: &MassRenameArgs,
+    _buffer: &BTreeMap<PathBuf, PathBuf>,
+) -> Result<(), Box<dyn Error>> {
     // for (src, dst) in buffer {
     //     crate::ocd::output::file_move(config.verbosity, src, dst);
     //     if !config.dryrun {
@@ -819,22 +848,6 @@ fn execute_rules(
     Ok(())
 }
 
-fn new_buffer(files: &[PathBuf]) -> BTreeMap<PathBuf, PathBuf> {
-    let mut buffer = BTreeMap::new();
-    for file in files {
-        buffer.insert(file.clone(), file.clone());
-    }
-    buffer
-}
-
-fn clean_buffer(dirty_buffer: BTreeMap<PathBuf, PathBuf>) -> BTreeMap<PathBuf, PathBuf> {
-    let mut buffer = BTreeMap::new();
-    for (src, dst) in dirty_buffer.iter().filter(|(src, dst)| src != dst) {
-        buffer.insert(src.clone(), dst.clone());
-    }
-    buffer
-}
-
 fn rename_file(path: &mut PathBuf, filename: String) {
     let extension = match path.extension() {
         None => String::new(),
@@ -844,113 +857,16 @@ fn rename_file(path: &mut PathBuf, filename: String) {
     path.set_extension(extension);
 }
 
-#[cfg(test)]
-mod test {
-    // use crate::ocd::mrn::apply_camel_case_join;
-    // use crate::ocd::mrn::apply_camel_case_split;
-    use crate::ocd::mrn::apply_delete;
-    use crate::ocd::mrn::apply_insert;
-    use crate::ocd::mrn::apply_lower_case;
-    use crate::ocd::mrn::apply_pattern_match;
-    use crate::ocd::mrn::apply_replace;
-    use crate::ocd::mrn::apply_sanitize;
-    use crate::ocd::mrn::apply_sentence_case;
-    use crate::ocd::mrn::apply_title_case;
-    use crate::ocd::mrn::apply_upper_case;
-    use crate::ocd::mrn::Position;
-
-    macro_rules! t {
-        ($t:ident : $s1:expr => $s2:expr) => {
-            #[test]
-            fn $t() {
-                assert_eq!($s1, $s2)
-            }
-        };
+pub fn pattern_match(
+    verbosity: Verbosity,
+    filename: &str,
+    match_pattern: &str,
+    replace_pattern: &str,
+) {
+    if verbosity.is_silent() {
+        return;
     }
-
-    // t!(test3: "MixedUP CamelCase, with some Spaces" => "Mixed Up Camel Case With Some Spaces");
-    // t!(test4: "mixed_up_ snake_case, with some _spaces" => "Mixed Up Snake Case With Some Spaces");
-    // t!(test5: "kebab-case" => "Kebab Case");
-    // t!(test6: "SHOUTY_SNAKE_CASE" => "Shouty Snake Case");
-    // t!(test7: "snake_case" => "Snake Case");
-    // t!(test8: "this-contains_ ALLKinds OfWord_Boundaries" => "This Contains All Kinds Of Word Boundaries");
-
-    t!(lower_case_test:
-        apply_lower_case("LoWeRcAsE") => "lowercase");
-    t!(upper_case_test:
-        apply_upper_case("UpPeRcAsE") => "UPPERCASE");
-    t!(title_case_test_1:
-        apply_title_case("A tItLe HaS mUlTiPlE wOrDs") => "A Title Has Multiple Words");
-    t!(title_case_test_2:
-        apply_title_case("XΣXΣ baﬄe") => "Xσxσ Baﬄe");
-    t!(sentence_case_test_1:
-        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
-    t!(sentence_case_test_2:
-        apply_sentence_case("a sentence has multiple words") => "A sentence has multiple words");
-    t!(sentence_case_test_3:
-        apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
-    t!(sentence_case_test_4:
-        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
-    // t!(camel_case_join_test:
-    //     apply_camel_case_join("Camel case Join") => "CamelCaseJoin");
-    // t!(camel_case_split_test_1:
-    //     apply_camel_case_split("CamelCase") => "Camel Case");
-    // t!(camel_case_split_test_2:
-    //     apply_camel_case_split("CamelCaseSplit") => "Camel Case Split");
-    // t!(camel_case_split_test_3:
-    //     apply_camel_case_split("XMLHttpRequest") => "Xml Http Request");
-    t!(replace_test:
-        apply_replace("aa bbccdd ee", "cc", "ff") => "aa bbffdd ee");
-    t!(replace_space_dash_test:
-        apply_replace("aa bb cc dd", " ", "-") => "aa-bb-cc-dd");
-    t!(replace_space_period_test:
-        apply_replace("aa bb cc dd", " ", ".") => "aa.bb.cc.dd");
-    t!(replace_space_under_test:
-        apply_replace("aa bb cc dd", " ", "_") => "aa_bb_cc_dd");
-    t!(replace_dash_period_test:
-        apply_replace("aa-bb-cc-dd", "-", ".") => "aa.bb.cc.dd");
-    t!(replace_dash_space_test:
-        apply_replace("aa-bb-cc-dd", "-", " ") => "aa bb cc dd");
-    t!(replace_dash_under_test:
-        apply_replace("aa-bb-cc-dd", "-", "_") => "aa_bb_cc_dd");
-    t!(replace_period_dash_test:
-        apply_replace("aa.bb.cc.dd", ".", "-") => "aa-bb-cc-dd");
-    t!(replace_period_space_test:
-        apply_replace("aa.bb.cc.dd", ".", " ") => "aa bb cc dd");
-    t!(replace_period_under_test:
-        apply_replace("aa.bb.cc.dd", ".", "_") => "aa_bb_cc_dd");
-    t!(replace_under_dash_test:
-        apply_replace("aa_bb_cc_dd", "_", "-") => "aa-bb-cc-dd");
-    t!(replace_under_period_test:
-        apply_replace("aa_bb_cc_dd", "_", ".") => "aa.bb.cc.dd");
-    t!(replace_under_space_test:
-        apply_replace("aa_bb_cc_dd", "_", " ") => "aa bb cc dd");
-    t!(pattern_match_test_1:
-        apply_pattern_match(0, "aa bb", "{X} {X}", "{2} {1}") => "bb aa");
-    t!(pattern_match_test_2:
-        apply_pattern_match(0, "Dave Brubeck - 01. Take five", "{X} - {N}. {X}", "{1} {2} {3}") => "Dave Brubeck 01 Take five");
-    t!(pattern_match_test_3:
-        apply_pattern_match(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{1} {2}") => "Bahia Blanca 2019-10-21");
-    t!(pattern_match_test_4:
-        apply_pattern_match(0, "Foo 123 B_a_r", "{A} {N} {X}", "{3} {2} {1}") => "B_a_r 123 Foo");
-    t!(pattern_match_test_5:
-        apply_pattern_match(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{2} {1}") => "2019-10-21 Bahia Blanca");
-    t!(pattern_match_test_6:
-        apply_pattern_match(0, "Bahia Blanca, 21 October 2019, FooBarBaz", "{X}, {D}, {X}", "{2} {1} {3}") => "2019-10-21 Bahia Blanca FooBarBaz");
-    t!(insert_test_1:
-        apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
-    t!(insert_test_2:
-        apply_insert("aa bb", " cc", &Position::Index { value: 2 }) => "aa cc bb");
-    t!(insert_test_3:
-        apply_insert("aa bb", "cc ", &Position::Index { value: 0 }) => "cc aa bb");
-    t!(sanitize_test:
-        apply_sanitize("04 Three village scenes_ Lakodalom [BB 87_B]") => "04 Three village scenes Lakodalom BB 87 B");
-    t!(delete_test_1:
-        apply_delete("aa bb cc", 0, &Position::End) => "");
-    t!(delete_test_2:
-        apply_delete("aa bb cc", 0, &Position::Index { value: 3 }) => "bb cc");
-    t!(delete_test_3:
-        apply_delete("aa bb cc", 0, &Position::Index { value: 42 }) => "");
+    println!("filename:        {:?}", filename);
+    println!("match pattern:   {:?}", match_pattern);
+    println!("replace pattern: {:?}", replace_pattern);
 }
-
- */

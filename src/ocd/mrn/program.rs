@@ -1,12 +1,19 @@
+use core::fmt;
 use std::fmt::{Debug, Error, Formatter};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CommandError {
+pub enum InstructionError {
     InvalidIndex,
-    InvalidString,
+    // InvalidString,
 }
 
-pub enum Opcode {
+impl fmt::Display for InstructionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+pub enum Instruction {
     Sanitize,
     CaseLower,
     CaseUpper,
@@ -39,88 +46,85 @@ pub enum Opcode {
     InteractiveReOrder,
 }
 
-impl Debug for Opcode {
+impl Debug for Instruction {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        use self::Opcode::*;
+        use self::Instruction::*;
         match self {
-            &Sanitize => write!(fmt, "n"),
-            &CaseLower => write!(fmt, "cl"),
-            &CaseUpper => write!(fmt, "cu"),
-            &CaseTitle => write!(fmt, "ct"),
-            &CaseSentence => write!(fmt, "cs"),
-            &JoinCamel => write!(fmt, "jc"),
-            &JoinSnake => write!(fmt, "js"),
-            &JoinKebab => write!(fmt, "jk"),
-            &SplitCamel => write!(fmt, "sc"),
-            &SplitSnake => write!(fmt, "ss"),
-            &SplitKebab => write!(fmt, "sk"),
-            &Replace {
+            Sanitize => write!(fmt, "n"),
+            CaseLower => write!(fmt, "cl"),
+            CaseUpper => write!(fmt, "cu"),
+            CaseTitle => write!(fmt, "ct"),
+            CaseSentence => write!(fmt, "cs"),
+            JoinCamel => write!(fmt, "jc"),
+            JoinSnake => write!(fmt, "js"),
+            JoinKebab => write!(fmt, "jk"),
+            SplitCamel => write!(fmt, "sc"),
+            SplitSnake => write!(fmt, "ss"),
+            SplitKebab => write!(fmt, "sk"),
+            Replace {
                 pattern: ReplaceArg::Dash,
                 replace: ReplaceArg::Period,
             } => write!(fmt, "rdp"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Dash,
                 replace: ReplaceArg::Space,
             } => write!(fmt, "rds"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Dash,
                 replace: ReplaceArg::Underscore,
             } => write!(fmt, "rdu"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Period,
                 replace: ReplaceArg::Dash,
             } => write!(fmt, "rpd"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Period,
                 replace: ReplaceArg::Space,
             } => write!(fmt, "rps"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Period,
                 replace: ReplaceArg::Underscore,
             } => write!(fmt, "rpu"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Space,
                 replace: ReplaceArg::Dash,
             } => write!(fmt, "rsd"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Space,
                 replace: ReplaceArg::Period,
             } => write!(fmt, "rsp"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Space,
                 replace: ReplaceArg::Underscore,
             } => write!(fmt, "rsu"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Underscore,
                 replace: ReplaceArg::Dash,
             } => write!(fmt, "rud"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Underscore,
                 replace: ReplaceArg::Period,
             } => write!(fmt, "rup"),
-            &Replace {
+            Replace {
                 pattern: ReplaceArg::Underscore,
                 replace: ReplaceArg::Space,
             } => write!(fmt, "rus"),
-            &Replace {
-                pattern: ReplaceArg::Text(ref p),
-                replace: ReplaceArg::Text(ref r),
+            Replace {
+                pattern: ReplaceArg::Text(p),
+                replace: ReplaceArg::Text(r),
             } => write!(fmt, "r '{}' '{}'", p, r),
-            &Insert {
-                position: ref p,
-                text: ref s,
+            Insert {
+                position: p,
+                text: s,
             } => write!(fmt, "i {:?} '{}'", p, s),
-            &Delete {
-                from: ref f,
-                to: ref t,
-            } => write!(fmt, "d {:?} {:?}", f, t),
-            &PatternMatch {
-                pattern: ref p,
-                replace: ref r,
+            Delete { from: f, to: t } => write!(fmt, "d {:?} {:?}", f, t),
+            PatternMatch {
+                pattern: p,
+                replace: r,
             } => write!(fmt, "p '{}' '{}'", p, r),
-            &ExtensionAdd(ref extension) => write!(fmt, "ea '{}'", extension),
-            &ExtensionRemove => write!(fmt, "er"),
-            &InteractiveReOrder => write!(fmt, "iro"),
+            ExtensionAdd(extension) => write!(fmt, "ea '{}'", extension),
+            ExtensionRemove => write!(fmt, "er"),
+            InteractiveReOrder => write!(fmt, "iro"),
             _ => write!(fmt, "FORMAT ERROR"),
         }
     }
@@ -137,6 +141,18 @@ pub enum ReplaceArg {
     Period,
     Underscore,
     Text(String),
+}
+
+impl ReplaceArg {
+    pub fn as_str(&self) -> &str {
+        match self {
+            ReplaceArg::Dash => "-",
+            ReplaceArg::Space => " ",
+            ReplaceArg::Period => ".",
+            ReplaceArg::Underscore => "_",
+            ReplaceArg::Text(text) => text.as_str(),
+        }
+    }
 }
 
 impl Debug for Position {
