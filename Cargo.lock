@@ -553,7 +553,6 @@ dependencies = [
  "lalrpop-util",
  "lazy_static",
  "regex",
- "remain",
  "tracing",
  "unicode-segmentation",
  "walkdir",
@@ -697,17 +696,6 @@ name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
-
-[[package]]
-name = "remain"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bce3a7139d2ee67d07538ee5dba997364fbc243e7e7143e96eb830c74bfaa082"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "rustix"

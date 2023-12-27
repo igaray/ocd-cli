@@ -50,7 +50,7 @@ Operation: Instruction = {
     "p" <p:StringValue> <r:StringValue> => Instruction::PatternMatch{ pattern: p, replace: r },
     "ea" <e:StringValue> => Instruction::ExtensionAdd(e),
     "er" => Instruction::ExtensionRemove,
-    "iro" => Instruction::InteractiveReOrder,
+    "o" => Instruction::InteractiveReOrder,
 }
 
 // A position may either be the keyword 'end' or an index.

@@ -7,14 +7,15 @@ extern crate lazy_static;
 use crate::ocd::mrn::program::Instruction;
 use crate::ocd::mrn::program::Position;
 use crate::ocd::mrn::program::ReplaceArg;
+use crate::ocd::Action;
 use crate::ocd::Mode;
+use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
 use clap::Args;
 use clap::ValueEnum;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -128,50 +129,40 @@ pub enum MassRenameParser {
     Lalrpop,
 }
 
-type FilenameBuffer = BTreeMap<PathBuf, PathBuf>;
-
-/*
-impl FilenameBuffer {
-    fn new(files: &[PathBuf]) -> FilenameBuffer {
-        let mut buffer = BTreeMap::new();
-        for file in files {
-            buffer.insert(file.clone(), file.clone());
-        }
-        buffer
-    }
-
-    fn clean(&mut self) {
-        self.retain(|(src, dst)| src != dst)
-    }
-}
-*/
-
-fn new_filenamebuffer(files: &[PathBuf]) -> FilenameBuffer {
-    let mut buffer = BTreeMap::new();
-    for file in files {
-        buffer.insert(file.clone(), file.clone());
-    }
-    buffer
-}
-
-fn clean_filenamebuffer(buffer: &mut FilenameBuffer) {
-    buffer.retain(|src, dst| src != dst)
-}
-
 pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
-    let files = entries(config)?;
+    if !config.verbosity().is_silent() {
+        println!("Verbosity: {:?}", config.verbosity())
+    }
+
+    // Parse instructions
     let program = match config.parser {
         MassRenameParser::Handwritten => parse_with_handwritten(config)?,
         MassRenameParser::Lalrpop => parse_with_lalrpop(config)?,
     };
-    let buffer = apply_program(&config, &program, &files)?;
-
-    if !config.dry_run && config.undo {
-        create_undo_script(config, &buffer);
+    if config.verbosity() == Verbosity::Debug {
+        println!("Program: \n{:#?}", &program);
     }
 
-    if config.yes || crate::ocd::user_confirm() {
-        execute_program(&config, &buffer)?
+    // Initialize plan
+    let mut plan = create_plan(config)?;
+
+    // Apply intructions
+    apply_program(config, program, &mut plan)?;
+    if !config.verbosity().is_silent() {
+        plan.present_long()
+    }
+
+    // Maybe create undo script
+    if !config.dry_run && config.undo {
+        if !config.verbosity().is_silent() {
+            println!("Creating undo script.");
+        }
+        plan.create_undo()?;
+    }
+
+    // Skip if dry run, execute unconditionally or ask for confirmation
+    if !config.dry_run && (config.yes || crate::ocd::user_confirm()) {
+        plan.execute()?;
     }
     Ok(())
 }
@@ -183,13 +174,18 @@ fn parse_with_handwritten(
     // let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
     // crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
     // rules
-    Ok(Vec::new())
+    todo!("Parsing with the handwritten parser is not implemented yet!")
 }
 
 fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
     let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
     let program_result = parser.parse(&config.input)?;
     Ok(program_result)
+}
+
+fn create_plan(config: &MassRenameArgs) -> Result<Plan, Box<dyn Error>> {
+    let files = entries(config)?;
+    Ok(Plan::new().with_git(config.git).with_files(files))
 }
 
 fn entries(config: &MassRenameArgs) -> Result<Vec<PathBuf>, Box<dyn Error>> {
@@ -321,163 +317,124 @@ fn entries(config: &MassRenameArgs) -> Result<Vec<PathBuf>, Box<dyn Error>> {
             }
         }
     }
-
     Ok(entries_vec)
 }
 
 fn apply_program(
     config: &MassRenameArgs,
-    program: &[crate::ocd::mrn::program::Instruction],
-    files: &[PathBuf],
-) -> Result<FilenameBuffer, Box<dyn Error>> {
-    dbg!(&program);
-    let mut buffer = new_filenamebuffer(files);
-
-    for instruction in program {
-        for (index, (_src, mut dst)) in buffer.iter_mut().enumerate() {
-            apply_instruction(index, &instruction, &mut dst);
+    program: Vec<crate::ocd::mrn::program::Instruction>,
+    plan: &mut Plan,
+) -> Result<(), Box<dyn Error>> {
+    for instruction in &program {
+        for (index, (src, mut action)) in plan.actions.iter_mut().enumerate() {
+            if config.verbosity() == Verbosity::Debug {
+                println!("Applying");
+                println!("    instruction: {:?}", instruction);
+                println!("    index:       {:?}", index);
+                println!("    src:         {:?}", src);
+                println!("    action:      {:?}", action);
+            }
+            apply_instruction(config, index, instruction, &mut action);
         }
     }
-    // buffer.clean();
-    clean_filenamebuffer(&mut buffer);
-    print_result(config, &buffer);
-    Ok(buffer)
+    plan.clean();
+    Ok(())
 }
 
-fn print_result(config: &MassRenameArgs, buffer: &BTreeMap<PathBuf, PathBuf>) {
-    if !config.verbosity().is_silent() {
-        println!("Result:");
-        for (src, dst) in buffer {
-            println!("  =");
-            println!("    - {:?}", src);
-            println!("    + {:?}", dst);
+fn apply_instruction(config: &MassRenameArgs, index: usize, instruction: &Instruction, action: &mut Action) {
+    if let Action::Rename { ref mut path } = action {
+        let filename = path.file_stem().unwrap();
+        let filename = filename.to_str().unwrap();
+        match instruction {
+            Instruction::Sanitize => {
+                let filename = apply_sanitize(filename);
+                rename_file(path, filename);
+            }
+            Instruction::CaseLower => {
+                let filename = apply_lower_case(filename);
+                rename_file(path, filename);
+            }
+            Instruction::CaseUpper => {
+                let filename = apply_upper_case(filename);
+                rename_file(path, filename);
+            }
+            Instruction::CaseTitle => {
+                let filename = apply_title_case(filename);
+                rename_file(path, filename);
+            }
+            Instruction::CaseSentence => {
+                let filename = apply_sentence_case(filename);
+                rename_file(path, filename);
+            }
+            Instruction::JoinCamel => {
+                let filename = apply_camel_case_join(filename);
+                rename_file(path, filename);
+            }
+            Instruction::JoinSnake => {
+                todo!("Snake case join instruction is not implemented yet!");
+            }
+            Instruction::JoinKebab => {
+                todo!("Kebab case join instruction is not implemented yet!");
+            }
+            Instruction::SplitCamel => {
+                let filename = apply_camel_case_split(filename);
+                rename_file(path, filename);
+            }
+            Instruction::SplitSnake => {
+                todo!("Snake case split instruction is not implemented yet!");
+            }
+            Instruction::SplitKebab => {
+                todo!("Kebab case split instruction is not implemented yet!");
+            }
+            Instruction::Replace { pattern, replace } => {
+                let filename = apply_replace(filename, pattern, replace);
+                rename_file(path, filename);
+            }
+            Instruction::Insert { position, text } => {
+                let filename = apply_insert(filename, text, position);
+                rename_file(path, filename);
+            }
+            Instruction::Delete { from, to } => {
+                let filename = apply_delete(filename, *from, to);
+                rename_file(path, filename);
+            }
+            Instruction::PatternMatch { pattern, replace } => {
+                let filename = apply_pattern_match(config, index, filename, pattern, replace);
+                rename_file(path, filename);
+            }
+            Instruction::ExtensionAdd(extension) => {
+                path.set_extension(extension);
+            }
+            Instruction::ExtensionRemove => {
+                path.set_extension("");
+            }
+            Instruction::InteractiveReOrder => {
+                let filename = apply_interactive_reorder(filename);
+                rename_file(path, filename);
+            }
         }
     }
 }
 
-fn apply_instruction(index: usize, instruction: &Instruction, path: &mut PathBuf) {
-    dbg!(&index, &instruction, &path);
-    let filename = path.file_stem().unwrap();
-    let filename = filename.to_str().unwrap();
-    match instruction {
-        Instruction::Sanitize => {
-            let filename = apply_sanitize(filename);
-            rename_file(path, filename);
-        }
-        Instruction::CaseLower => {
-            let filename = apply_lower_case(filename);
-            rename_file(path, filename);
-        }
-        Instruction::CaseUpper => {
-            let filename = apply_upper_case(filename);
-            rename_file(path, filename);
-        }
-        Instruction::CaseTitle => {
-            let filename = apply_title_case(filename);
-            rename_file(path, filename);
-        }
-        Instruction::CaseSentence => {
-            let filename = apply_sentence_case(filename);
-            rename_file(path, filename);
-        }
-        Instruction::JoinCamel => {
-            let filename = apply_camel_case_join(filename);
-            rename_file(path, filename);
-        }
-        Instruction::JoinSnake => {}
-        Instruction::JoinKebab => {}
-        Instruction::SplitCamel => {
-            let filename = apply_camel_case_split(filename);
-            rename_file(path, filename);
-        }
-        Instruction::SplitSnake => {}
-        Instruction::SplitKebab => {}
-        Instruction::Replace { pattern, replace } => {
-            let filename = apply_replace(filename, pattern, replace);
-            rename_file(path, filename);
-        }
-        Instruction::Insert { position, text } => {
-            let filename = apply_insert(filename, text, position);
-            rename_file(path, filename);
-        }
-        Instruction::Delete { from, to } => {
-            let filename = apply_delete(filename, *from, to);
-            rename_file(path, filename);
-        }
-        Instruction::PatternMatch { pattern, replace } => {
-            let filename = apply_pattern_match(index, filename, pattern, replace);
-            rename_file(path, filename);
-        }
-        Instruction::ExtensionAdd(extension) => {
-            path.set_extension(extension);
-        }
-        Instruction::ExtensionRemove => {
-            path.set_extension("");
-        }
-        Instruction::InteractiveReOrder => {
-            let filename = apply_interactive_reorder(filename);
-            rename_file(path, filename);
-        }
+fn rename_file(path: &mut PathBuf, filename: String) {
+    let extension = match path.extension() {
+        None => String::new(),
+        Some(extension) => String::from(extension.to_str().unwrap()),
+    };
+    path.set_file_name(filename);
+    path.set_extension(extension);
+}
+
+fn apply_sanitize(filename: &str) -> String {
+    lazy_static! {
+        static ref ALPHANUMERIC_REGEX: Regex = Regex::new(r"([a-zA-Z0-9])+").unwrap();
     }
 
-    /*
-        match rule {
-            Rule::ReplaceSpaceDash => {
-                let filename = apply_replace(filename, " ", "-");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceSpacePeriod => {
-                let filename = apply_replace(filename, " ", ".");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceSpaceUnder => {
-                let filename = apply_replace(filename, " ", "_");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceDashPeriod => {
-                let filename = apply_replace(filename, "-", ".");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceDashSpace => {
-                let filename = apply_replace(filename, "-", " ");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceDashUnder => {
-                let filename = apply_replace(filename, "-", "_");
-                rename_file(path, filename);
-            }
-            Rule::ReplacePeriodDash => {
-                let filename = apply_replace(filename, ".", "-");
-                rename_file(path, filename);
-            }
-            Rule::ReplacePeriodSpace => {
-                let filename = apply_replace(filename, ".", " ");
-                rename_file(path, filename);
-            }
-            Rule::ReplacePeriodUnder => {
-                let filename = apply_replace(filename, ".", "_");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceUnderDash => {
-                let filename = apply_replace(filename, "_", "-");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceUnderPeriod => {
-                let filename = apply_replace(filename, "_", ".");
-                rename_file(path, filename);
-            }
-            Rule::ReplaceUnderSpace => {
-                let filename = apply_replace(filename, "_", " ");
-                rename_file(path, filename);
-            }
-            Rule::InteractiveTokenize => {
-            }
-            Rule::InteractivePatternMatch => {
-                let filename = apply_interactive_pattern_match(filename);
-                rename_file(path, filename);
-            }
-        }
-    */
+    let mut all = Vec::new();
+    for capture in ALPHANUMERIC_REGEX.captures_iter(filename) {
+        all.push(String::from(&capture[0]));
+    }
+    all.join(" ")
 }
 
 fn apply_lower_case(filename: &str) -> String {
@@ -536,59 +493,77 @@ fn titlecase_word(word: &str) -> String {
 }
 
 fn apply_camel_case_join(_filename: &str) -> String {
-    unimplemented!()
+    todo!("Camel case join instruction not implemented yet!")
 }
 
 fn apply_camel_case_split(_filename: &str) -> String {
-    unimplemented!()
-}
-
-fn apply_sanitize(filename: &str) -> String {
-    lazy_static! {
-        static ref ALPHANUMERIC_REGEX: Regex = Regex::new(r"([a-zA-Z0-9])+").unwrap();
-    }
-
-    let mut all = Vec::new();
-    for capture in ALPHANUMERIC_REGEX.captures_iter(filename) {
-        all.push(String::from(&capture[0]));
-    }
-    all.join(" ")
+    todo!("Camel case split instruction not implemented yet!")
 }
 
 fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
     filename.replace(pattern.as_str(), replace.as_str())
 }
 
+fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
+    let mut new = String::from(filename);
+    match position {
+        Position::End => new.push_str(text),
+        Position::Index(index) if index >= &new.len() => new.push_str(text),
+        Position::Index(index) => new.insert_str(*index, text),
+    }
+    new
+}
+
+fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
+    // This was the previous implementation:
+    // let mut filename2 = String::new();
+    // let filename1: Vec<char> = filename.chars().collect();
+    // for (idx, chr) in filename1.iter().enumerate() {
+    //     match to {
+    //         Position::End => {
+    //             if !(from <= idx) {
+    //                 filename2.push(*chr);
+    //             }
+    //         }
+    //         Position::Index { value } => {
+    //             if !((from <= idx) && (idx <= *value)) {
+    //                 filename2.push(*chr);
+    //             }
+    //         }
+    //     }
+    // }
+    // filename2
+    let to_idx = match *to {
+        Position::End => filename.len(),
+        Position::Index(value) => {
+            if value > filename.len() {
+                filename.len()
+            } else {
+                value
+            }
+        }
+    };
+    let mut s = String::from(filename);
+    s.replace_range(from_idx..to_idx, "");
+    s
+}
+
 fn apply_pattern_match(
+    config: &MassRenameArgs,
     _index: usize,
     filename: &str,
     match_pattern: &str,
     replace_pattern: &str,
 ) -> String {
-    fn month_to_number(month: &str) -> &str {
-        match month {
-            "jan" | "Jan" | "january" | "January" => "01",
-            "feb" | "Feb" | "february" | "February" => "02",
-            "mar" | "Mar" | "march" | "March" => "03",
-            "apr" | "Apr" | "april" | "April" => "04",
-            "may" | "May" => "05",
-            "jun" | "Jun" | "june" | "June" => "06",
-            "jul" | "Jul" | "july" | "July" => "07",
-            "aug" | "Aug" | "august" | "August" => "08",
-            "sep" | "Sep" | "september" | "September" => "09",
-            "oct" | "Oct" | "october" | "October" => "10",
-            "nov" | "Nov" | "november" | "November" => "11",
-            "dec" | "Dec" | "december" | "December" => "12",
-            unexpected => {
-                panic!("Unknown month value! {}", unexpected);
-            }
-        }
-    }
-
-    pattern_match(Verbosity::Debug, filename, match_pattern, replace_pattern);
-
     lazy_static! {
         static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
+    }
+
+    if config.verbosity() == Verbosity::Debug {
+        println!("Pattern match instruction");
+        println!("    filename:        {:?}", filename);
+        println!("    match pattern:   {:?}", match_pattern);
+        println!("    replace pattern: {:?}", replace_pattern);
     }
 
     let florbs: Vec<&str> = FLORB_REGEX
@@ -748,125 +723,26 @@ fn apply_pattern_match(
     }
 }
 
-fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
-    let mut new = String::from(filename);
-    match position {
-        Position::End => new.push_str(text),
-        Position::Index(index) if index >= &new.len() => new.push_str(text),
-        Position::Index(index) => new.insert_str(*index, text),
+fn month_to_number(month: &str) -> &str {
+    match month {
+        "jan" | "Jan" | "january" | "January" => "01",
+        "feb" | "Feb" | "february" | "February" => "02",
+        "mar" | "Mar" | "march" | "March" => "03",
+        "apr" | "Apr" | "april" | "April" => "04",
+        "may" | "May" => "05",
+        "jun" | "Jun" | "june" | "June" => "06",
+        "jul" | "Jul" | "july" | "July" => "07",
+        "aug" | "Aug" | "august" | "August" => "08",
+        "sep" | "Sep" | "september" | "September" => "09",
+        "oct" | "Oct" | "october" | "October" => "10",
+        "nov" | "Nov" | "november" | "November" => "11",
+        "dec" | "Dec" | "december" | "December" => "12",
+        unexpected => {
+            panic!("Unknown month value! {}", unexpected);
+        }
     }
-    new
 }
 
 fn apply_interactive_reorder(_filename: &str) -> String {
-    unimplemented!()
-}
-
-fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
-    // This was the previous implementation:
-    // let mut filename2 = String::new();
-    // let filename1: Vec<char> = filename.chars().collect();
-    // for (idx, chr) in filename1.iter().enumerate() {
-    //     match to {
-    //         Position::End => {
-    //             if !(from <= idx) {
-    //                 filename2.push(*chr);
-    //             }
-    //         }
-    //         Position::Index { value } => {
-    //             if !((from <= idx) && (idx <= *value)) {
-    //                 filename2.push(*chr);
-    //             }
-    //         }
-    //     }
-    // }
-    // filename2
-    let to_idx = match *to {
-        Position::End => filename.len(),
-        Position::Index(value) => {
-            if value > filename.len() {
-                filename.len()
-            } else {
-                value
-            }
-        }
-    };
-    let mut s = String::from(filename);
-    s.replace_range(from_idx..to_idx, "");
-    s
-}
-
-fn create_undo_script(_config: &MassRenameArgs, _buffer: &FilenameBuffer) {
-    // if !config.verbosity.is_silent() {
-    //     println!("Creating undo script.");
-    //     match File::create("./undo.sh") {
-    //         Ok(mut output_file) => {
-    //             for (src, dst) in buffer {
-    //                 let result = if config.git {
-    //                     writeln!(output_file, "git mv {:?} {:?}", dst, src)
-    //                 } else {
-    //                     writeln!(output_file, "mv -i {:?} {:?}", dst, src)
-    //                 };
-    //                 if let Err(reason) = result {
-    //                     eprintln!("Error writing to undo file: {:?}", reason);
-    //                 }
-    //             }
-    //         }
-    //         Err(reason) => {
-    //             eprintln!("Error creating undo file: {:?}", reason);
-    //         }
-    //     }
-    // }
-}
-
-fn execute_program(
-    _config: &MassRenameArgs,
-    _buffer: &BTreeMap<PathBuf, PathBuf>,
-) -> Result<(), Box<dyn Error>> {
-    // for (src, dst) in buffer {
-    //     crate::ocd::output::file_move(config.verbosity, src, dst);
-    //     if !config.dryrun {
-    //         if config.git {
-    //             let src = src.to_str().unwrap();
-    //             let dst = dst.to_str().unwrap();
-    //             let _output = Command::new("git")
-    //                 .args(&["mv", src, dst])
-    //                 .output()
-    //                 .expect("Error invoking git.");
-    //         // TODO: do something with output
-    //         } else {
-    //             match fs::rename(src, dst) {
-    //                 Ok(_) => {}
-    //                 Err(reason) => {
-    //                     eprintln!("Error moving file: {:?}", reason);
-    //                     return Err(String::from("Error moving file."));
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    Ok(())
-}
-
-fn rename_file(path: &mut PathBuf, filename: String) {
-    let extension = match path.extension() {
-        None => String::new(),
-        Some(extension) => String::from(extension.to_str().unwrap()),
-    };
-    path.set_file_name(filename);
-    path.set_extension(extension);
-}
-
-pub fn pattern_match(
-    verbosity: Verbosity,
-    filename: &str,
-    match_pattern: &str,
-    replace_pattern: &str,
-) {
-    if verbosity.is_silent() {
-        return;
-    }
-    println!("filename:        {:?}", filename);
-    println!("match pattern:   {:?}", match_pattern);
-    println!("replace pattern: {:?}", replace_pattern);
+    todo!("Interactive reorder instruction not implemented yet!")
 }

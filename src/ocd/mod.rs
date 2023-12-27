@@ -9,13 +9,14 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
+use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// File processing mode, filters only regular files, only directories, or both.
-#[remain::sorted]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Mode {
     All,
@@ -68,8 +69,8 @@ trait Speaker {
 
 #[derive(Debug)]
 enum Action {
-    Move { dst: PathBuf },
-    Rename { dst: PathBuf },
+    Move { path: PathBuf },
+    Rename { path: PathBuf },
 }
 
 impl Display for Action {
@@ -82,10 +83,11 @@ impl Display for Action {
 /// An action can be either a move, in which case when the plan is executed the file will be moved to said directory, or a rename.
 /// The plan also stores some metadata, such as the set of directories that are created (to be bale to generated an undo file and delete them).
 struct Plan {
-    pub dirs: HashSet<PathBuf>,
     pub actions: BTreeMap<PathBuf, Action>,
-    pub max_src_len: usize,
-    pub max_dst_len: usize,
+    dirs: HashSet<PathBuf>,
+    use_git: bool,
+    max_src_len: usize,
+    max_dst_len: usize,
 }
 
 impl Plan {
@@ -93,51 +95,55 @@ impl Plan {
         Plan {
             dirs: HashSet::new(),
             actions: BTreeMap::new(),
+            use_git: false,
             max_src_len: 0,
             max_dst_len: 0,
         }
     }
 
+    pub fn with_git(mut self, use_git: bool) -> Self {
+        self.use_git = use_git;
+        self
+    }
+
+    pub fn with_files(mut self, files: Vec<PathBuf>) -> Self {
+        for file in files {
+            self.insert(file.clone(), Action::Rename { path: file.clone() });
+        }
+        self
+    }
+
+    /// Removes all actions in plan which would result in the file being renamed into itself or moved into the current directory.
     pub fn clean(&mut self) {
-        todo!();
+        // Retains only the elements specified by the predicate.
+        // In other words, remove all pairs for which the predicate returns false.
+        self.actions.retain(|src, action| match action {
+            Action::Move { path: _ } => true,
+            Action::Rename { path } => src != path,
+        })
     }
 
     pub fn insert(&mut self, src: PathBuf, action: Action) {
-        match action {
-            Action::Move { ref dst } => {
-                self.dirs.insert(dst.clone());
-
-                // Maximum source character length
-                let msl = src
-                    .as_os_str()
-                    .to_str()
-                    .expect("Unable to convert file path.")
-                    .chars()
-                    .count();
-                if msl > self.max_src_len {
-                    self.max_src_len = msl
-                }
-
-                // Maximum destination character length
-                let mdl = dst
-                    .as_os_str()
-                    .to_str()
-                    .expect("Unable to convert destination path.")
-                    .chars()
-                    .count();
-                if mdl > self.max_dst_len {
-                    self.max_dst_len = mdl
-                }
+        let path = match action {
+            Action::Move { ref path } => {
+                // In the case of a move, the program will have created a directory into which the file will be moved, and it must be remembered so that the undo script can remove it.
+                self.dirs.insert(path.clone());
+                path
             }
-            Action::Rename { dst: _ } => {
-                todo!();
-            }
+            Action::Rename { ref path } => path,
         };
-        self.actions.insert(src, action);
-    }
 
-    pub fn update(&mut self, _src: PathBuf, _dst: PathBuf) {
-        todo!();
+        // Maximum source character length
+        let msl = path_length(&src);
+        if msl > self.max_src_len {
+            self.max_src_len = msl
+        }
+        // Maximum destination character length
+        let mdl = path_length(&path);
+        if mdl > self.max_dst_len {
+            self.max_dst_len = mdl
+        }
+        self.actions.insert(src, action);
     }
 
     pub fn present_short(&self) {
@@ -145,69 +151,98 @@ impl Plan {
         let mdl = self.max_dst_len;
         for (src, action) in &self.actions {
             match action {
-                Action::Move { dst } => {
+                Action::Move { path } => {
                     println!(
-                        "{:<msl$} will be moved to {:<mdl$}",
+                        "{:<msl$} moved to {:<mdl$}",
                         src.display(),
-                        dst.display(),
+                        path.display(),
                     );
                 }
-                Action::Rename { dst } => {
+                Action::Rename { path } => {
                     println!(
-                        "{:<msl$} will be renamed to {:<mdl$}",
+                        "{:<msl$} renamed to {:<mdl$}",
                         src.display(),
-                        dst.display(),
+                        path.display(),
                     );
                 }
             }
         }
     }
 
-    pub fn present_long(&self, _verbosity: Verbosity) {
-        todo!();
-    }
-
-    pub fn execute(
-        &self,
-        skip_confirm: bool,
-        dry_run: bool,
-        undo: bool,
-    ) -> Result<(), Box<dyn Error>> {
-        if !dry_run {
-            if skip_confirm || crate::ocd::user_confirm() {
-                if undo {
-                    self.create_undo_file()?
+    pub fn present_long(&self) {
+        println!("Result:");
+        for (src, action) in &self.actions {
+            match action {
+                Action::Move { path } => {
+                    println!("  move");
+                    println!("    - {}", src.display());
+                    println!("    > {}", path.display());
                 }
-                for (src, action) in &self.actions {
-                    let dst = match action {
-                        Action::Move { dst } => dst,
-                        Action::Rename { dst } => dst,
-                    };
-                    create_directory(&dst)?;
-                    move_file(&src, &dst)?;
+                Action::Rename { path } => {
+                    println!("  rename");
+                    println!("    - {}", src.display());
+                    println!("    + {}", path.display());
                 }
             }
+        }
+    }
+
+    pub fn execute(&self) -> Result<(), Box<dyn Error>> {
+        for (src, action) in &self.actions {
+            match action {
+                Action::Move { path } => {
+                    create_directory(&path)?;
+                    move_file(&src, &path)?;
+                }
+                Action::Rename { path } => {
+                    rename_file(self.use_git, &src, &path)?;
+                }
+            };
         }
         Ok(())
     }
 
-    pub fn create_undo_file(&self) -> io::Result<()> {
+    pub fn create_undo(&self) -> io::Result<()> {
+        let git = if self.use_git { "git " } else { "" };
         let mut undo_file = std::fs::File::create("undo.sh")?;
         for (src, action) in &self.actions {
-            let dir = match action {
-                Action::Move { dst } => dst,
-                Action::Rename { dst } => dst,
+            match action {
+                Action::Move { path } => {
+                    let mut dst_path = PathBuf::new();
+                    dst_path.push(path);
+                    dst_path.push(src.file_name().unwrap());
+                    writeln!(
+                        undo_file,
+                        "{}mv \"{}\" \"{}\"",
+                        git,
+                        dst_path.display(),
+                        src.display()
+                    )?;
+                }
+                Action::Rename { path } => {
+                    writeln!(
+                        undo_file,
+                        "{}mv \"{}\" \"{}\"",
+                        git,
+                        path.display(),
+                        src.display()
+                    )?;
+                }
             };
-            let mut dst = PathBuf::new();
-            dst.push(dir);
-            dst.push(src.file_name().unwrap());
-            writeln!(undo_file, "mv \"{}\" \"{}\"", dst.display(), src.display())?;
         }
         for dir in &self.dirs {
-            writeln!(undo_file, "rm -rf {}", dir.display())?;
+            writeln!(undo_file, "rmdir {}", dir.display())?;
         }
         Ok(())
     }
+}
+
+fn path_length(path: &PathBuf) -> usize {
+    path.as_os_str()
+        .to_str()
+        .expect("Unable to convert file path into string.")
+        .chars()
+        .count()
 }
 
 /// Asks the user for confirmation before proceeding.
@@ -240,40 +275,17 @@ fn move_file(src: &PathBuf, dir: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-/*
-    pub fn mrn_lexer_error(verbosity: Verbosity, msg: &str) {
-        if verbosity.is_silent() {
-            return;
-        }
-        println!("{}", msg);
+fn rename_file(use_git: bool, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
+    if use_git {
+        let src = src.to_str().unwrap();
+        let dst = dst.to_str().unwrap();
+        let _output = Command::new("git")
+            .args(&["mv", src, dst])
+            .output()
+            .expect("Error invoking git.");
+        // TODO: do something with the output
+    } else {
+        fs::rename(src, dst)?
     }
-
-    pub fn mrn_state(
-        config: &crate::ocd::mrn::MassRenameConfig,
-        tokens: &[Token],
-        rules: &[Rule],
-        files: &[PathBuf],
-    ) {
-        // if let Verbosity::Debug = config.verbosity {
-        //     println!("{:#?}", &config);
-        //     println!("Tokens:\n{:#?}", &tokens);
-        //     println!("Rules:\n{:#?}", &rules);
-        //     println!("Files:\n{:#?}", &files);
-        // }
-    }
-
-    pub fn undo_script(verbosity: Verbosity) {
-        if verbosity.is_silent() {
-            return;
-        }
-        println!("Creating undo script.");
-    }
-
-    pub fn file_move(verbosity: Verbosity, src: &Path, dst: &Path) {
-        if verbosity.is_silent() {
-            return;
-        }
-        println!("Moving {:?}\n    to {:?}", src, dst);
-    }
-
-*/
+    Ok(())
+}

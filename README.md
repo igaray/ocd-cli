@@ -2,10 +2,17 @@
 
 TODO:
 - [ ] add an option to tss to select/restrict data source, and show date source in plan
-- [ ] hook up lalrpop parser
-- [ ] update handwritten lexer
-- [ ] update handwritten parser
-- [ ] incorporate generated state machine lexer
+- [ ] update date parser to understand IPhotos-style folder moment names
+- [ ] implement missing instructions
+    - [ ] camel case join
+    - [ ] snake case join
+    - [ ] kebab case join
+    - [ ] camel case split
+    - [ ] snake case split
+    - [ ] kebab case split
+    - [ ] interactive reorder
+    - [ ] pattern match
+- [ ] update handwritten lexer & parser
 - [ ] document
 
 | old | new | notes                     |
@@ -38,8 +45,8 @@ TODO:
 | d   | d   | delete                    |
 | ea  | ea  | extension add             |
 | er  | er  | extension remove          |
-| p   | ipm | interactive pattern match |
-|     | iro | interactive re order      |
+| p   | p   | interactive pattern match |
+|     | o   | interactive re order      |
 
 ---
 

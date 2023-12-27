@@ -32,7 +32,6 @@ kamadak-exif = "*"
 lalrpop-util = { version = "*", features = ["lexer"] }
 lazy_static = "*"
 regex = "*"
-remain = "*"
 tracing = "*"
 unicode-segmentation = "*"
 walkdir = "*"

@@ -14,7 +14,6 @@ use exif::Value;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::error::Error;
-use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use walkdir::DirEntry;
@@ -66,20 +65,36 @@ impl Speaker for TimeStampSortArgs {
 }
 
 pub fn run(config: &TimeStampSortArgs) -> Result<(), Box<dyn Error>> {
-    let plan = create_plan(config)?;
+    if config.source {
+        todo!("Time stamp sort selection of date source is not implemented yet!");
+    }
 
+    if !config.verbosity().is_silent() {
+        println!("verbosity: {:?}", config.verbosity())
+    }
+
+    // Initialize plan
+    let plan = create_plan(config)?;
     if !config.verbosity().is_silent() {
         plan.present_short();
     }
 
-    plan.execute(config.yes, config.dry_run, config.undo)?;
+    // Maybe create undo script
+    if !config.dry_run && config.undo {
+        if !config.verbosity().is_silent() {
+            println!("Creating undo script.");
+        }
+        plan.create_undo()?;
+    }
+
+    // Skip if dry run, execute unconditionally or ask for confirmation
+    if !config.dry_run && (config.yes || crate::ocd::user_confirm()) {
+        plan.execute()?;
+    }
     Ok(())
 }
 
 fn create_plan(config: &TimeStampSortArgs) -> Result<Plan, Box<dyn Error>> {
-    let mut plan = Plan::new();
-    let max_depth = if config.recurse { usize::MAX } else { 1 };
-
     // version 1
     // for entry in WalkDir::new(&config.dir) {
     //     match entry {
@@ -119,6 +134,8 @@ fn create_plan(config: &TimeStampSortArgs) -> Result<Plan, Box<dyn Error>> {
     //     })?;
 
     // version 5
+    let mut plan = Plan::new();
+    let max_depth = if config.recurse { usize::MAX } else { 1 };
     WalkDir::new(&config.dir)
         .max_depth(max_depth)
         .sort_by_file_name()
@@ -156,10 +173,10 @@ fn is_image(entry: &Path) -> bool {
 
 /// Given a directory entry, will insert it into the map of files to be relocated to their destinations, if the entry is a regular file, is not hidden, is an image, and a date can be extracted from the file either from its filename, exif data, or if its creation date is not today.
 fn maybe_insert(config: &TimeStampSortArgs, plan: &mut Plan, entry: DirEntry) {
-    let path = entry.into_path();
-    if path.is_file() && !is_hidden(&path) && is_image(&path) {
-        if let Some(dst) = destination(config, &path) {
-            plan.insert(path, Action::Move { dst });
+    let entry_path = entry.into_path();
+    if entry_path.is_file() && !is_hidden(&entry_path) && is_image(&entry_path) {
+        if let Some(path) = destination(config, &entry_path) {
+            plan.insert(entry_path, Action::Move { path });
         }
     }
 }
@@ -301,8 +318,4 @@ fn metadata_date(config: &TimeStampSortArgs, path: &PathBuf) -> Option<PathBuf> 
             None
         }
     }
-}
-
-fn maybe_create_undo_file(_config: &TimeStampSortArgs, _plan: &Plan) -> io::Result<()> {
-    todo!();
 }

@@ -23,23 +23,22 @@ struct Cli {
 }
 
 /// All OCD commands.
-#[remain::sorted]
 #[derive(Clone, Debug, Subcommand)]
 enum OcdCommand {
-    #[clap(name = "lphc", about = "Run the Elephant client")]
-    ElephantClient {},
-
-    #[clap(name = "lphs", about = "Start the Elephant server")]
-    ElephantServer {},
-
-    #[clap(name = "id3", about = "Fix ID3 tags")]
-    FixID3 {},
-
     #[clap(name = "mrn", about = "Mass Re-Name")]
     MassRename(crate::ocd::mrn::MassRenameArgs),
 
     #[clap(name = "tss", about = "Time Stamp Sort")]
     TimeStampSort(crate::ocd::tss::TimeStampSortArgs),
+
+    #[clap(name = "id3", about = "Fix ID3 tags")]
+    FixID3 {},
+
+    #[clap(name = "lphc", about = "Run the Elephant client")]
+    ElephantClient {},
+
+    #[clap(name = "lphs", about = "Start the Elephant server")]
+    ElephantServer {},
 }
 
 fn main() {
@@ -56,7 +55,7 @@ fn main() {
             }
         }
         _ => {
-            todo!();
+            todo!("This subcommand has not been implemented yet!");
         }
     }
 }
