@@ -12,6 +12,8 @@ use crate::ocd::Mode;
 use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
+use chrono::DateTime;
+use chrono::Local;
 use clap::Args;
 use clap::ValueEnum;
 use lazy_static::lazy_static;
@@ -326,7 +328,7 @@ fn apply_program(
     plan: &mut Plan,
 ) -> Result<(), Box<dyn Error>> {
     for instruction in &program {
-        for (index, (src, mut action)) in plan.actions.iter_mut().enumerate() {
+        for (index, (src, action)) in plan.actions.iter_mut().enumerate() {
             if config.verbosity() == Verbosity::Debug {
                 println!("Applying");
                 println!("    instruction: {:?}", instruction);
@@ -334,14 +336,19 @@ fn apply_program(
                 println!("    src:         {:?}", src);
                 println!("    action:      {:?}", action);
             }
-            apply_instruction(config, index, instruction, &mut action);
+            apply_instruction(config, index, instruction, action);
         }
     }
     plan.clean();
     Ok(())
 }
 
-fn apply_instruction(config: &MassRenameArgs, index: usize, instruction: &Instruction, action: &mut Action) {
+fn apply_instruction(
+    config: &MassRenameArgs,
+    index: usize,
+    instruction: &Instruction,
+    action: &mut Action,
+) {
     if let Action::Rename { ref mut path } = action {
         let filename = path.file_stem().unwrap();
         let filename = filename.to_str().unwrap();
@@ -367,24 +374,28 @@ fn apply_instruction(config: &MassRenameArgs, index: usize, instruction: &Instru
                 rename_file(path, filename);
             }
             Instruction::JoinCamel => {
-                let filename = apply_camel_case_join(filename);
+                let filename = apply_join_camel_case(filename);
                 rename_file(path, filename);
             }
             Instruction::JoinSnake => {
-                todo!("Snake case join instruction is not implemented yet!");
+                let filename = apply_join_snake_case(filename);
+                rename_file(path, filename);
             }
             Instruction::JoinKebab => {
-                todo!("Kebab case join instruction is not implemented yet!");
+                let filename = apply_join_kebab_case(filename);
+                rename_file(path, filename);
             }
             Instruction::SplitCamel => {
-                let filename = apply_camel_case_split(filename);
+                let filename = apply_split_camel_case(filename);
                 rename_file(path, filename);
             }
             Instruction::SplitSnake => {
-                todo!("Snake case split instruction is not implemented yet!");
+                let filename = apply_split_snake_case(filename);
+                rename_file(path, filename);
             }
             Instruction::SplitKebab => {
-                todo!("Kebab case split instruction is not implemented yet!");
+                let filename = apply_split_kebab_case(filename);
+                rename_file(path, filename);
             }
             Instruction::Replace { pattern, replace } => {
                 let filename = apply_replace(filename, pattern, replace);
@@ -412,7 +423,7 @@ fn apply_instruction(config: &MassRenameArgs, index: usize, instruction: &Instru
                 let filename = apply_interactive_reorder(filename);
                 rename_file(path, filename);
             }
-        }
+        };
     }
 }
 
@@ -492,12 +503,28 @@ fn titlecase_word(word: &str) -> String {
     titlecase_word
 }
 
-fn apply_camel_case_join(_filename: &str) -> String {
+fn apply_join_camel_case(_filename: &str) -> String {
     todo!("Camel case join instruction not implemented yet!")
 }
 
-fn apply_camel_case_split(_filename: &str) -> String {
+fn apply_join_snake_case(_filename: &str) -> String {
+    todo!("Snake case join instruction not implemented yet!")
+}
+
+fn apply_join_kebab_case(_filename: &str) -> String {
+    todo!("Kebab case join instruction not implemented yet!")
+}
+
+fn apply_split_camel_case(_filename: &str) -> String {
     todo!("Camel case split instruction not implemented yet!")
+}
+
+fn apply_split_snake_case(_filename: &str) -> String {
+    todo!("Snake case split instruction not implemented yet!")
+}
+
+fn apply_split_kebab_case(_filename: &str) -> String {
+    todo!("Kebab case split instruction is not implemented yet!")
 }
 
 fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
@@ -555,55 +582,82 @@ fn apply_pattern_match(
     match_pattern: &str,
     replace_pattern: &str,
 ) -> String {
+    //! A florb is a string which is a shorthand for a regex, or an action to take, such as {A}, {N}, {X}, {D}
     lazy_static! {
         static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
     }
 
+    let date_regex = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
+
     if config.verbosity() == Verbosity::Debug {
         println!("Pattern match instruction");
-        println!("    filename:        {:?}", filename);
-        println!("    match pattern:   {:?}", match_pattern);
+        println!("    filename: {:?}", filename);
+        println!("    match pattern: {:?}", match_pattern);
         println!("    replace pattern: {:?}", replace_pattern);
     }
 
     let florbs: Vec<&str> = FLORB_REGEX
-        .captures_iter(&match_pattern)
+        .captures_iter(match_pattern)
         .map(|c: regex::Captures| c.get(0).unwrap().as_str())
         .collect();
+    if config.verbosity() == Verbosity::Debug {
+        println!("    florbs: {:?}", florbs);
+    }
 
-    // println!("florbs in match pattern: {:?}", florbs);
     let mut match_pattern = String::from(match_pattern);
     match_pattern.insert(0, '^');
     match_pattern.push('$');
-    let match_pattern = match_pattern.replace(".", r"\.");
-    let match_pattern = match_pattern.replace("[", r"\[");
-    let match_pattern = match_pattern.replace("]", r"\]");
-    let match_pattern = match_pattern.replace("(", r"\(");
-    let match_pattern = match_pattern.replace(")", r"\)");
-    let match_pattern = match_pattern.replace("?", r"\?");
+    let match_pattern = match_pattern.replace('.', r"\.");
+    let match_pattern = match_pattern.replace('[', r"\[");
+    let match_pattern = match_pattern.replace(']', r"\]");
+    let match_pattern = match_pattern.replace('(', r"\(");
+    let match_pattern = match_pattern.replace(')', r"\)");
+    let match_pattern = match_pattern.replace('?', r"\?");
     let match_pattern = match_pattern.replace("{A}", r"([[:alpha:]]*)"); // Alphabetic
     let match_pattern = match_pattern.replace("{N}", r"([[:digit:]]*)"); // Digits
     let match_pattern = match_pattern.replace("{X}", r"(.*)"); // Anything
-    let date_regex = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
     let match_pattern = match_pattern.replace("{D}", date_regex); // Date
-                                                                  // println!("match pattern after replacement: {:?}", match_pattern);
 
-    // TODO Replace data generators
-    // n = n.replace("{date}",      time.strftime("%Y-%m-%d", time.localtime()))
-    // n = n.replace("{year}",      time.strftime("%Y",       time.localtime()))
-    // n = n.replace("{month}",     time.strftime("%m",       time.localtime()))
-    // n = n.replace("{monthname}", time.strftime("%B",       time.localtime()))
-    // n = n.replace("{monthsimp}", time.strftime("%b",       time.localtime()))
-    // n = n.replace("{day}",       time.strftime("%d",       time.localtime()))
-    // n = n.replace("{dayname}",   time.strftime("%A",       time.localtime()))
-    // n = n.replace("{daysimp}",   time.strftime("%a",       time.localtime()))
+    // Data generators
+    // https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+    let localtime: DateTime<Local> = Local::now();
+    let replace_pattern = replace_pattern.replace(
+        "{date}",
+        format!("{}", localtime.format("%Y-%m-%d")).as_str(),
+    );
+    // %Y The full proleptic Gregorian year, zero-padded to 4 digits.
+    let replace_pattern =
+        replace_pattern.replace("{year}", format!("{}", localtime.format("%Y")).as_str());
+    // %m  Month number (01–12), zero-padded to 2 digits.
+    let replace_pattern =
+        replace_pattern.replace("{month}", format!("{}", localtime.format("%m")).as_str());
+    // %b Abbreviated month name. Always 3 letters.
+    let replace_pattern = replace_pattern.replace(
+        "{monthsimp}",
+        format!("{}", localtime.format("%b")).as_str(),
+    );
+    // %B Full month name.
+    let replace_pattern = replace_pattern.replace(
+        "{monthname}",
+        format!("{}", localtime.format("%B")).as_str(),
+    );
+    // %d Day number (01–31), zero-padded to 2 digits.
+    let replace_pattern =
+        replace_pattern.replace("{day}", format!("{}", localtime.format("%d")).as_str());
+    // %a Abbreviated weekday name. Always 3 letters.
+    let replace_pattern =
+        replace_pattern.replace("{dayname}", format!("{}", localtime.format("%A")).as_str());
+    // %A Full weekday name.
+    let replace_pattern =
+        replace_pattern.replace("{daysimp}", format!("{}", localtime.format("%a")).as_str());
 
-    // TODO Replace random number generators
+    // Random number generators
     // # Replace {rand} with random number between 0 and 100.
     // # If {rand500} the number will be between 0 and 500
     // # If {rand10-20} the number will be between 10 and 20
     // # If you add ,[ 5 the number will be padded with 5 digits
     // # ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
+
     // rnd = ""
     // cr = re.compile("{(rand)([0-9]*)}"
     //                 "|{(rand)([0-9]*)(\-)([0-9]*)}"
@@ -654,9 +708,13 @@ fn apply_pattern_match(
     //         if cg[3] != "":
     //             count = count.zfill(int(cg[3]))
     // newname = cr.sub(count, newname)
+    if config.verbosity() == Verbosity::Debug {
+        println!("    post-processing match pattern: {:?}", match_pattern);
+        println!("    post-processing replace pattern: {:?}", replace_pattern);
+    }
 
     let match_regex = Regex::new(&match_pattern).unwrap();
-    match match_regex.captures(&filename) {
+    match match_regex.captures(filename) {
         None => {
             println!("No match on {:?}", filename);
             String::from(filename)
@@ -669,7 +727,7 @@ fn apply_pattern_match(
                 match *f {
                     "{A}" | "{N}" | "{X}" => {
                         let content = capture.get(ci).unwrap().as_str();
-                        replace_pattern = replace_pattern.replace(&mark, &content);
+                        replace_pattern = replace_pattern.replace(&mark, content);
                         ci += 1;
                     }
                     "{D}" => {
@@ -706,7 +764,7 @@ fn apply_pattern_match(
                         let mut content = String::new();
                         content.push_str(&year_text);
                         content.push('-');
-                        content.push_str(&month_text);
+                        content.push_str(month_text);
                         content.push('-');
                         content.push_str(&day_text);
                         // println!("  content: {:?}", content);
@@ -744,5 +802,9 @@ fn month_to_number(month: &str) -> &str {
 }
 
 fn apply_interactive_reorder(_filename: &str) -> String {
+    // split filename into substrings
+    // print each substring with its index below
+    // read user input
+    // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
 }

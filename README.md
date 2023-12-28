@@ -4,6 +4,7 @@ TODO:
 - [ ] add an option to tss to select/restrict data source, and show date source in plan
 - [ ] update date parser to understand IPhotos-style folder moment names
 - [ ] implement missing instructions
+    - [ ] finish pattern match implementation
     - [ ] camel case join
     - [ ] snake case join
     - [ ] kebab case join
@@ -11,7 +12,7 @@ TODO:
     - [ ] snake case split
     - [ ] kebab case split
     - [ ] interactive reorder
-    - [ ] pattern match
+- [ ] allow user to pass in arbitrary strftime format strings to pattern match data generator florb
 - [ ] update handwritten lexer & parser
 - [ ] document
 

@@ -139,7 +139,7 @@ impl Plan {
             self.max_src_len = msl
         }
         // Maximum destination character length
-        let mdl = path_length(&path);
+        let mdl = path_length(path);
         if mdl > self.max_dst_len {
             self.max_dst_len = mdl
         }
@@ -152,11 +152,7 @@ impl Plan {
         for (src, action) in &self.actions {
             match action {
                 Action::Move { path } => {
-                    println!(
-                        "{:<msl$} moved to {:<mdl$}",
-                        src.display(),
-                        path.display(),
-                    );
+                    println!("{:<msl$} moved to {:<mdl$}", src.display(), path.display(),);
                 }
                 Action::Rename { path } => {
                     println!(
@@ -191,11 +187,11 @@ impl Plan {
         for (src, action) in &self.actions {
             match action {
                 Action::Move { path } => {
-                    create_directory(&path)?;
-                    move_file(&src, &path)?;
+                    create_directory(path)?;
+                    move_file(src, path)?;
                 }
                 Action::Rename { path } => {
-                    rename_file(self.use_git, &src, &path)?;
+                    rename_file(self.use_git, src, path)?;
                 }
             };
         }
@@ -237,7 +233,7 @@ impl Plan {
     }
 }
 
-fn path_length(path: &PathBuf) -> usize {
+fn path_length(path: &Path) -> usize {
     path.as_os_str()
         .to_str()
         .expect("Unable to convert file path into string.")
@@ -258,10 +254,10 @@ fn create_directory(directory: &Path) -> io::Result<()> {
     let mut full_path = PathBuf::new();
     full_path.push(directory);
     match std::fs::create_dir(&full_path) {
-        Ok(_) => return Ok(()),
+        Ok(_) => Ok(()),
         Err(reason) => match reason.kind() {
-            io::ErrorKind::AlreadyExists => return Ok(()),
-            _ => return Err(reason),
+            io::ErrorKind::AlreadyExists => Ok(()),
+            _ => Err(reason),
         },
     }
 }
@@ -280,7 +276,7 @@ fn rename_file(use_git: bool, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
         let src = src.to_str().unwrap();
         let dst = dst.to_str().unwrap();
         let _output = Command::new("git")
-            .args(&["mv", src, dst])
+            .args(["mv", src, dst])
             .output()
             .expect("Error invoking git.");
         // TODO: do something with the output

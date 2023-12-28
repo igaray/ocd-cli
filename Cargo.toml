@@ -35,14 +35,16 @@ regex = "*"
 tracing = "*"
 unicode-segmentation = "*"
 walkdir = "*"
+rand = "*"
 
-
-# chrono = "*"
+# string wrangling
 # voca_rs = "*"
 # case = "1.0.0"
 # heck = "0.3.1"
 # Inflector = "0.11.4"
 # string_morph = "0.1.0"
+
+# output
 # id3 = "0.3.0"
 # indicatif = "*"
 # console = "*"
