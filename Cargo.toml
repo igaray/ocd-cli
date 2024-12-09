@@ -9,8 +9,8 @@ homepage = "https://github.com/igaray/ocd-cli"
 repository = "https://github.com/igaray/ocd-cli"
 documentation = "https://docs.rs/ocd-cli"
 readme = "README.md"
-keywords = ["cli","file","rename"]
-categories = ["command-line-utilities","filesystem"]
+keywords = ["cli", "file", "rename"]
+categories = ["command-line-utilities", "filesystem"]
 description = """
 A CLI file management swiss army knife.
 """
@@ -21,16 +21,17 @@ path = "src/main.rs"
 
 [build-dependencies]
 lalrpop = { version = "*", features = ["lexer"] }
+clap = { version = "*", features = ["derive", "cargo"] }
 
 [dependencies]
 chrono = "*"
-clap = {version = "*", features = ["derive"]}
+clap = { version = "*", features = ["derive", "cargo"] }
 dateparser = "*"
 dialoguer = "*"
 glob = "*"
 kamadak-exif = "*"
 lalrpop-util = { version = "*", features = ["lexer"] }
-lazy_static = "*"
+logos = "*"
 regex = "*"
 tracing = "*"
 unicode-segmentation = "*"
@@ -38,13 +39,14 @@ walkdir = "*"
 rand = "*"
 
 # string wrangling
-# voca_rs = "*"
-# case = "1.0.0"
-# heck = "0.3.1"
-# Inflector = "0.11.4"
-# string_morph = "0.1.0"
+voca_rs = "*"
+case = "1.0.0"
+heck = "0.3.1"
+Inflector = "0.11.4"
+string_morph = "0.1.0"
 
 # output
 # id3 = "0.3.0"
-# indicatif = "*"
-# console = "*"
+indicatif = "*"
+console = "*"
+ratatui = "*"
