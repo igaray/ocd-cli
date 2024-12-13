@@ -2,25 +2,22 @@
 //!
 //! This command implements a small interpreter with a number of shortcuts to common filename manipulation actions.
 
-extern crate lazy_static;
-
 use crate::ocd::mrn::program::Instruction;
 use crate::ocd::mrn::program::Position;
+use crate::ocd::mrn::program::Program;
 use crate::ocd::mrn::program::ReplaceArg;
 use crate::ocd::Action;
 use crate::ocd::Mode;
 use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
-use chrono::DateTime;
-use chrono::Local;
 use clap::Args;
 use clap::ValueEnum;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use walkdir::WalkDir;
 
 pub mod handwritten;
@@ -31,41 +28,41 @@ pub mod program;
 #[derive(Clone, Debug, Args)]
 #[command(args_conflicts_with_subcommands = true)]
 pub struct MassRenameArgs {
-    #[arg(short = 'v')]
     #[arg(action = clap::ArgAction::Count)]
-    #[arg(help = r#"Sets the verbosity level. 
-Default is low, one medium, two high, three or more debug."#)]
+    #[arg(help = r#"Sets the verbosity level.
+        Default is low, one medium, two high, three or more debug."#)]
+    #[arg(short = 'v')]
     verbosity: u8,
 
-    #[arg(long, help = "Silences all output.")]
+    #[arg(help = "Silences all output.")]
+    #[arg(long)]
     silent: bool,
 
-    #[arg(short = 'd')]
-    #[arg(long)]
     #[arg(default_value = "./")]
     #[arg(help = "Run inside a given directory.")]
+    #[arg(long)]
+    #[arg(short = 'd')]
     dir: PathBuf,
 
-    #[arg(
-        long = "dry-run",
-        help = "Do not effect any changes on the filesystem."
-    )]
+    #[arg(help = "Do not effect any changes on the filesystem.")]
+    #[arg(long = "dry-run")]
     dry_run: bool,
 
-    #[arg(short = 'u', long, help = "Create undo script.")]
+    #[arg(help = "Create undo script.")]
+    #[arg(long)]
+    #[arg(short = 'u')]
     undo: bool,
 
-    #[arg(long, help = "Do not ask for confirmation.")]
+    #[arg(help = "Do not ask for confirmation.")]
+    #[arg(long)]
     yes: bool,
 
-    #[arg(long, help = "Rename files by calling `git mv`")]
+    #[arg(help = "Rename files by calling `git mv`")]
+    #[arg(long)]
     git: bool,
 
-    #[arg(short = 'c')]
-    #[arg(long)]
-    #[arg(
-        help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`. 
-If --dir is specified as well it will be concatenated with the glob pattern. 
+    #[arg(help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
+If --dir is specified as well it will be concatenated with the glob pattern.
 If --recurse is also specified it will be ignored."#
     )]
     glob: Option<String>,
@@ -116,6 +113,8 @@ p <match> <pattern>   Pattern match
 ip                    Interactive pattern match
 it                    Interactive tokenize
     "#)]
+    #[arg(long)]
+    #[arg(short = 'c')]
     input: String,
 }
 
@@ -132,7 +131,7 @@ pub enum MassRenameParser {
 }
 
 pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
-    if !config.verbosity().is_silent() {
+    if config.verbosity() >= Verbosity::Silent {
         println!("Verbosity: {:?}", config.verbosity())
     }
 
@@ -141,7 +140,7 @@ pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
         MassRenameParser::Handwritten => parse_with_handwritten(config)?,
         MassRenameParser::Lalrpop => parse_with_lalrpop(config)?,
     };
-    if config.verbosity() == Verbosity::Debug {
+    if config.verbosity() >= Verbosity::Debug {
         println!("Program: \n{:#?}", &program);
     }
 
@@ -181,8 +180,9 @@ fn parse_with_handwritten(
 
 fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
     let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
-    let program_result = parser.parse(&config.input)?;
-    Ok(program_result)
+    let mut program = parser.parse(&config.input)?;
+    program.check()?;
+    Ok(program)
 }
 
 fn create_plan(config: &MassRenameArgs) -> Result<Plan, Box<dyn Error>> {
@@ -437,9 +437,8 @@ fn rename_file(path: &mut PathBuf, filename: String) {
 }
 
 fn apply_sanitize(filename: &str) -> String {
-    lazy_static! {
-        static ref ALPHANUMERIC_REGEX: Regex = Regex::new(r"([a-zA-Z0-9])+").unwrap();
-    }
+    static ALPHANUMERIC_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([a-zA-Z0-9])+").unwrap());
 
     let mut all = Vec::new();
     for capture in ALPHANUMERIC_REGEX.captures_iter(filename) {
@@ -577,25 +576,24 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
 
 fn apply_pattern_match(
     config: &MassRenameArgs,
-    _index: usize,
+    index: usize,
     filename: &str,
     match_pattern: &str,
     replace_pattern: &str,
 ) -> String {
-    //! A florb is a string which is a shorthand for a regex, or an action to take, such as {A}, {N}, {X}, {D}
-    lazy_static! {
-        static ref FLORB_REGEX: Regex = Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap();
-    }
-
-    let date_regex = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
+    // A florb is a string which is a shorthand for a regex, or an action to take, such as {A}, {N}, {X}, {D}
+    static FLORB_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap());
 
     if config.verbosity() == Verbosity::Debug {
         println!("Pattern match instruction");
+        println!("    index: {:?}", index);
         println!("    filename: {:?}", filename);
-        println!("    match pattern: {:?}", match_pattern);
-        println!("    replace pattern: {:?}", replace_pattern);
+        println!("    input match pattern: {:?}", match_pattern);
+        println!("    input replace pattern: {:?}", replace_pattern);
     }
 
+    // TODO: fix this by calling find_iter
     let florbs: Vec<&str> = FLORB_REGEX
         .captures_iter(match_pattern)
         .map(|c: regex::Captures| c.get(0).unwrap().as_str())
@@ -604,172 +602,46 @@ fn apply_pattern_match(
         println!("    florbs: {:?}", florbs);
     }
 
-    let mut match_pattern = String::from(match_pattern);
-    match_pattern.insert(0, '^');
-    match_pattern.push('$');
-    let match_pattern = match_pattern.replace('.', r"\.");
-    let match_pattern = match_pattern.replace('[', r"\[");
-    let match_pattern = match_pattern.replace(']', r"\]");
-    let match_pattern = match_pattern.replace('(', r"\(");
-    let match_pattern = match_pattern.replace(')', r"\)");
-    let match_pattern = match_pattern.replace('?', r"\?");
-    let match_pattern = match_pattern.replace("{A}", r"([[:alpha:]]*)"); // Alphabetic
-    let match_pattern = match_pattern.replace("{N}", r"([[:digit:]]*)"); // Digits
-    let match_pattern = match_pattern.replace("{X}", r"(.*)"); // Anything
-    let match_pattern = match_pattern.replace("{D}", date_regex); // Date
-
-    // Data generators
-    // https://docs.rs/chrono/latest/chrono/format/strftime/index.html
-    let localtime: DateTime<Local> = Local::now();
-    let replace_pattern = replace_pattern.replace(
-        "{date}",
-        format!("{}", localtime.format("%Y-%m-%d")).as_str(),
-    );
-    // %Y The full proleptic Gregorian year, zero-padded to 4 digits.
-    let replace_pattern =
-        replace_pattern.replace("{year}", format!("{}", localtime.format("%Y")).as_str());
-    // %m  Month number (01–12), zero-padded to 2 digits.
-    let replace_pattern =
-        replace_pattern.replace("{month}", format!("{}", localtime.format("%m")).as_str());
-    // %b Abbreviated month name. Always 3 letters.
-    let replace_pattern = replace_pattern.replace(
-        "{monthsimp}",
-        format!("{}", localtime.format("%b")).as_str(),
-    );
-    // %B Full month name.
-    let replace_pattern = replace_pattern.replace(
-        "{monthname}",
-        format!("{}", localtime.format("%B")).as_str(),
-    );
-    // %d Day number (01–31), zero-padded to 2 digits.
-    let replace_pattern =
-        replace_pattern.replace("{day}", format!("{}", localtime.format("%d")).as_str());
-    // %a Abbreviated weekday name. Always 3 letters.
-    let replace_pattern =
-        replace_pattern.replace("{dayname}", format!("{}", localtime.format("%A")).as_str());
-    // %A Full weekday name.
-    let replace_pattern =
-        replace_pattern.replace("{daysimp}", format!("{}", localtime.format("%a")).as_str());
-
-    // Random number generators
-    // # Replace {rand} with random number between 0 and 100.
-    // # If {rand500} the number will be between 0 and 500
-    // # If {rand10-20} the number will be between 10 and 20
-    // # If you add ,[ 5 the number will be padded with 5 digits
-    // # ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
-
-    // rnd = ""
-    // cr = re.compile("{(rand)([0-9]*)}"
-    //                 "|{(rand)([0-9]*)(\-)([0-9]*)}"
-    //                 "|{(rand)([0-9]*)(\,)([0-9]*)}"
-    //                 "|{(rand)([0-9]*)(\-)([0-9]*)(\,)([0-9]*)}")
-    // cg = cr.search(newname).groups()
-    // if len(cg) == 16:
-    //     if (cg[0] == "rand"):
-    //         if (cg[1] == ""):
-    //             # {rand}
-    //             rnd = random.randint(0, 100)
-    //         else:
-    //             # {rand2}
-    //             rnd = random.randint(0, int(cg[1]))
-    //     elif rand_case_1(cg):
-    //         # {rand10-100}
-    //         rnd = random.randint(int(cg[3]), int(cg[5]))
-    //     elif rand_case_2(cg):
-    //         if (cg[7] == ""):
-    //             # {rand,2}
-    //             rnd = str(random.randint(0, 100)).zfill(int(cg[9]))
-    //         else:
-    //             # {rand10,2}
-    //             rnd = str(random.randint(0, int(cg[7]))).zfill(int(cg[9]))
-    //     elif rand_case_3(cg):
-    //         # {rand2-10,3}
-    //         s = str(random.randint(int(cg[11]), int(cg[13])))
-    //         rnd = s.zfill(int(cg[15]))
-    // newname = cr.sub(str(rnd), newname)
-
-    // TODO Replace sequential number generators
-    // # Replace {num} with item number.
-    // # If {num2} the number will be 02
-    // # If {num3+10} the number will be 010
-    // count = str(count)
-    // cr = re.compile("{(num)([0-9]*)}|{(num)([0-9]*)(\+)([0-9]*)}")
-    // cg = cr.search(newname).groups()
-    // if len(cg) == 6:
-    //     if cg[0] == "num":
-    //         # {num2}
-    //         if cg[1] != "":
-    //             count = count.zfill(int(cg[1]))
-    //         newname = cr.sub(count, newname)
-    //     elif cg[2] == "num" and cg[4] == "+":
-    //         # {num2+5}
-    //         if cg[5] != "":
-    //             count = str(int(count)+int(cg[5]))
-    //         if cg[3] != "":
-    //             count = count.zfill(int(cg[3]))
-    // newname = cr.sub(count, newname)
     if config.verbosity() == Verbosity::Debug {
-        println!("    post-processing match pattern: {:?}", match_pattern);
-        println!("    post-processing replace pattern: {:?}", replace_pattern);
+        println!("    match pattern: {:?}", match_pattern);
+        println!("    replace pattern: {:?}", replace_pattern);
     }
 
+    /*
+    // Extract data from filename using the match pattern, and then construct a
+    // new filename replacing the fields in the replace pattern with the
+    // corresponding extracted data
     let match_regex = Regex::new(&match_pattern).unwrap();
     match match_regex.captures(filename) {
         None => {
-            println!("No match on {:?}", filename);
+            if config.verbosity() == Verbosity::Debug {
+                println!("    No matches on {:?}", filename);
+            }
+            // Nothing is to be done, so the same filename is returned.
             String::from(filename)
         }
         Some(capture) => {
-            let mut replace_pattern = replace_pattern.to_string();
-            let mut ci = 1;
-            for (fi, f) in florbs.iter().enumerate() {
-                let mark = format!("{{{}}}", fi + 1);
-                match *f {
+            let mut capture_index = 1;
+            for (florb_index, florb) in florbs.iter().enumerate() {
+                let mark = format!("{{{}}}", florb_index + 1);
+                match *florb {
                     "{A}" | "{N}" | "{X}" => {
-                        let content = capture.get(ci).unwrap().as_str();
+                        let content = capture.get(capture_index).unwrap().as_str();
                         replace_pattern = replace_pattern.replace(&mark, content);
-                        ci += 1;
+                        capture_index += 1;
                     }
                     "{D}" => {
-                        lazy_static! {
-                            // This regex recognizes human-readable dates and its subparts
-                            static ref IOS_DATE_FORMAT_REGEX: Regex = Regex::new(r"(?i)(?P<d>\d{1,2})\s(?P<m>January|February|March|April|May|June|July|August|September|October|November|December)\s(?P<y>\d{1,4})").unwrap();
+                        let date_text = capture.get(capture_index).unwrap().as_str();
+                        match try_ios_date_format_recognition(date_text) {
+                            None => {
+                                // TODO: If the iOS date format regex doesn't recognize anythin, try with a more general strftime format
+                                todo!("iOS Date recognition failed, fallback is not implemented!");
+                            },
+                            Some(content) => {
+                                replace_pattern = replace_pattern.replace(&mark, &content);
+                                capture_index += 1;
+                            }
                         }
-                        // println!("  capture: {:?}", capture);
-                        // println!("  ci: {}", ci);
-                        let date_text = capture.get(ci).unwrap().as_str();
-                        // println!("  date_text: {:?}", date_text);
-                        let date_capture = IOS_DATE_FORMAT_REGEX.captures(date_text).unwrap();
-                        // println!("  date_capture: {:?}", date_capture);
-                        let day_text = format!(
-                            "{:02}",
-                            date_capture
-                                .name("d")
-                                .unwrap()
-                                .as_str()
-                                .parse::<u32>()
-                                .unwrap()
-                        );
-                        let month_text = month_to_number(date_capture.name("m").unwrap().as_str());
-                        let year_text = format!(
-                            "{:02}",
-                            date_capture
-                                .name("y")
-                                .unwrap()
-                                .as_str()
-                                .parse::<u32>()
-                                .unwrap()
-                        );
-                        // let content = date_capture.get(ci).unwrap().as_str();
-                        let mut content = String::new();
-                        content.push_str(&year_text);
-                        content.push('-');
-                        content.push_str(month_text);
-                        content.push('-');
-                        content.push_str(&day_text);
-                        // println!("  content: {:?}", content);
-                        replace_pattern = replace_pattern.replace(&mark, &content);
-                        ci += 1;
                     }
                     _ => {
                         panic!("Unrecognized florb!");
@@ -779,10 +651,52 @@ fn apply_pattern_match(
             replace_pattern
         }
     }
+    */
+    String::from("")
 }
 
-fn month_to_number(month: &str) -> &str {
-    match month {
+/*
+fn try_ios_date_format_recognition(date_text: &str) -> Option<String> {
+    // This regex recognizes human-readable dates and its subparts
+    static IOS_DATE_FORMAT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)(?P<d>\d{1,2})\s(?P<m>January|February|March|April|May|June|July|August|September|October|November|December)\s(?P<y>\d{1,4})").unwrap()
+    });
+
+    match IOS_DATE_FORMAT_REGEX.captures(date_text) {
+        None => None,
+        Some(date_capture) => {
+            let day_text = format!(
+                "{:02}",
+                date_capture
+                    .name("d")
+                    .unwrap()
+                    .as_str()
+                    .parse::<u32>()
+                    .unwrap()
+            );
+            let month_text = month_to_number(date_capture.name("m").unwrap().as_str());
+            let year_text = format!(
+                "{:02}",
+                date_capture
+                    .name("y")
+                    .unwrap()
+                    .as_str()
+                    .parse::<u32>()
+                    .unwrap()
+            );
+            let mut content = String::new();
+            content.push_str(&year_text);
+            content.push('-');
+            content.push_str(&month_text);
+            content.push('-');
+            content.push_str(&day_text);
+            Some(content)
+        }
+    }
+}
+
+fn month_to_number(month: &str) -> String {
+    let month = match month {
         "jan" | "Jan" | "january" | "January" => "01",
         "feb" | "Feb" | "february" | "February" => "02",
         "mar" | "Mar" | "march" | "March" => "03",
@@ -798,13 +712,101 @@ fn month_to_number(month: &str) -> &str {
         unexpected => {
             panic!("Unknown month value! {}", unexpected);
         }
-    }
+    };
+    String::from(month)
 }
+*/
 
 fn apply_interactive_reorder(_filename: &str) -> String {
     // split filename into substrings
     // print each substring with its index below
     // read user input
+    let _input = crate::ocd::user_input();
+    // process input into a series of indices
     // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
 }
+
+// ----------------------------------------------------------------------------
+// This is from program.rs
+/*
+#[derive(Debug)]
+pub struct ReplacePattern {
+    pub components: Vec<ReplacePatternComponent>,
+}
+
+#[derive(Debug)]
+pub enum ReplacePatternComponent {
+    Literal(String),
+    RandomNumberGenerator {
+        start: Option<usize>,
+        end: Option<usize>,
+        padding: Option<usize>,
+    },
+    SequentialNumberGenerator {
+        offset: Option<usize>,
+        padding: Option<usize>,
+    },
+}
+*/
+
+
+// This is from parser.lalrpop
+/*
+ReplacePattern: Vec<ReplacePatternComponent> = {
+    "'" <rpcs: ReplaceComponents> "'" =>
+        {
+            println!("Parsed a ReplacePattern sequence: {:?}", rpcs);
+            rpcs
+        }
+}
+
+ReplaceComponents = Sequence<ReplaceComponent>;
+
+ReplaceComponent: ReplacePatternComponent = {
+    RandomNumberGenerator,
+    SequentialNumberGenerator,
+    <value: r"[a-yA-Y]+"> => ReplacePatternComponent::Literal(value.to_string()),
+}
+*/
+
+/*
+RandomNumberGenerator: ReplacePatternComponent = {
+   "{rng}" => ReplacePatternComponent::RandomNumberGenerator{start: Some(0), end: Some(100), padding: None},
+   "{rng" <start: r"[0-9]+"> "}" =>? {
+       let start = usize::from_str(start).map_err(|error| {dbg!(error); ParseError::User{error: InstructionError::InvalidIndex}} )?;
+       Ok(ReplacePatternComponent::RandomNumberGenerator{start: Some(start), end: None, padding: None})
+   },
+}
+*/
+
+/*
+SequentialNumberGenerator: ReplacePatternComponent = {
+    "{seq}" => ReplacePatternComponent::SequentialNumberGenerator{offset: None, padding: None},
+}
+*/
+
+/*
+   "{rng" <start: r"[0-9]+"> "-" <end: r"[0-9]+"> "}" => {
+   },
+ */
+
+/*
+        // Process replace pattern random number generators
+        // Replace {rand} with random number between 0 and 100.
+        // If {rand500} the number will be between 0 and 500
+        // If {rand10-20} the number will be between 10 and 20
+        // If you add ,5 the number will be padded with 5 digits
+        // ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
+
+    Literal(String),
+    {
+        start: Option<usize>,
+        end: Option<usize>,
+        padding: Option<usize>,
+    },
+    {
+        offset: Option<usize>,
+        padding: Option<usize>,
+    },
+*/

@@ -1,3 +1,5 @@
+use crate::ocd::mrn::program::process_match_pattern;
+use crate::ocd::mrn::program::process_replace_pattern;
 use crate::ocd::mrn::program::{Instruction, InstructionError, Position, ReplaceArg};
 use lalrpop_util::ParseError;
 use std::str::FromStr;
@@ -8,8 +10,16 @@ extern {
     type Error = InstructionError;
 }
 
-Comma<T>: Vec<T> = { // (0)
-    <mut v:(<T> ",")*> <e:T?> => match e { // (1)
+Sequence<T>: Vec<T> = {
+  <T> => vec![<>],
+  <mut s:Sequence<T>> <n:T> => {
+      s.push(n);
+      s
+  },
+}
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
         None => v,
         Some(e) => {
             v.push(e);
@@ -47,10 +57,14 @@ Operation: Instruction = {
     "r" <p:StringValue> <r:StringValue> => Instruction::Replace{ pattern: ReplaceArg::Text(p), replace: ReplaceArg::Text(r) },
     "i" <p:Position> <s:StringValue> => Instruction::Insert{position: p, text: s},
     "d" <f:Index> <t:Position> => Instruction::Delete{from: f, to: t},
-    "p" <p:StringValue> <r:StringValue> => Instruction::PatternMatch{ pattern: p, replace: r },
     "ea" <e:StringValue> => Instruction::ExtensionAdd(e),
     "er" => Instruction::ExtensionRemove,
     "o" => Instruction::InteractiveReOrder,
+    "p" <pattern:StringValue> <r:StringValue> => {
+        let pattern = process_match_pattern(pattern);
+        let replace = process_replace_pattern(r);
+        Instruction::PatternMatch{ pattern, replace }
+        },
 }
 
 // A position may either be the keyword 'end' or an index.
@@ -64,7 +78,10 @@ Index: usize = {
     r"[0-9]+" =>? usize::from_str(<>).map_err(|error| {dbg!(error); ParseError::User{error: InstructionError::InvalidIndex}} )
 };
 
-// A string value is any apostrophes-bounded character sequence which does not include apostrophes. 
+// A string value is any apostrophes-bounded character sequence which does not include apostrophes.
 StringValue: String = {
-    <value: r"'[^']*'"> => value.trim_matches('\'').to_string(),
+    <value: r"'[^']*'"> =>
+        {
+            value.trim_matches('\'').to_string()
+        }
 };

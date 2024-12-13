@@ -1,8 +1,6 @@
-// #[macro_use]
 extern crate clap;
 extern crate exif;
 extern crate lalrpop_util;
-extern crate lazy_static;
 extern crate regex;
 extern crate walkdir;
 
@@ -15,8 +13,9 @@ mod ocd;
 #[derive(Debug, Parser)]
 #[clap(name = "ocd")]
 #[clap(author = "Iñaki Garay <igarai@gmail.com>")]
-#[clap(version = env!("GIT_HASH") )]
-#[clap(about = "A swiss army knife of utilities to work with files.", long_about = None)]
+#[clap(version = env!("VERSION_STR") )] // set in build.rs
+#[clap(about = "A swiss army knife of utilities to work with files.")]
+#[clap(long_about = None)]
 struct Cli {
     #[clap(subcommand)]
     command: OcdCommand,
@@ -25,19 +24,24 @@ struct Cli {
 /// All OCD commands.
 #[derive(Clone, Debug, Subcommand)]
 enum OcdCommand {
-    #[clap(name = "mrn", about = "Mass Re-Name")]
+    #[clap(about = "Mass Re-Name")]
+    #[clap(name = "mrn")]
     MassRename(crate::ocd::mrn::MassRenameArgs),
 
-    #[clap(name = "tss", about = "Time Stamp Sort")]
+    #[clap(about = "Time Stamp Sort")]
+    #[clap(name = "tss")]
     TimeStampSort(crate::ocd::tss::TimeStampSortArgs),
 
-    #[clap(name = "id3", about = "Fix ID3 tags")]
+    #[clap(about = "Fix ID3 tags")]
+    #[clap(name = "id3")]
     FixID3 {},
 
-    #[clap(name = "lphc", about = "Run the Elephant client")]
+    #[clap(about = "Run the Elephant client")]
+    #[clap(name = "lphc")]
     ElephantClient {},
 
-    #[clap(name = "lphs", about = "Start the Elephant server")]
+    #[clap(about = "Start the Elephant server")]
+    #[clap(name = "lphs")]
     ElephantServer {},
 }
 

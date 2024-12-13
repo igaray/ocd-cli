@@ -4,6 +4,7 @@ pub mod tss;
 
 use clap::ValueEnum;
 use dialoguer::Confirm;
+use dialoguer::Input;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::error::Error;
@@ -60,7 +61,7 @@ trait Speaker {
     /// ```
     /// impl Speaker for TimeStampSortArgs {
     ///     fn verbosity(self: &Self) -> Verbosity {
-    ///         crate::ocd::Verbosity::new(self.silent, self.verbosity)    
+    ///         crate::ocd::Verbosity::new(self.silent, self.verbosity)
     ///     }
     /// }
     /// ```
@@ -68,9 +69,29 @@ trait Speaker {
 }
 
 #[derive(Debug)]
+enum DateSource {
+    Filename,
+    Exif,
+    Filesystem,
+}
+
+/// An action on a file can be either move the file to a new directory,
+/// or rename the file.
+/// The date source included in the Move variant is a bit of a hack.
+/// It is intended to help track where the date was obtained from, and should
+/// probably either be a field in a struct that wraps this enum, or be present
+/// in both variants. Since at this time, the date source is only tracked for
+/// the `Move` variant which is only used in the Time Stamp Sorted utility, it
+/// is inluded there.
+#[derive(Debug)]
 enum Action {
-    Move { path: PathBuf },
-    Rename { path: PathBuf },
+    Move {
+        date_source: Option<DateSource>,
+        path: PathBuf,
+    },
+    Rename {
+        path: PathBuf,
+    },
 }
 
 impl Display for Action {
@@ -80,8 +101,12 @@ impl Display for Action {
 }
 
 /// A plan consists of a mapping from file names to actions on said filenames.
-/// An action can be either a move, in which case when the plan is executed the file will be moved to said directory, or a rename.
-/// The plan also stores some metadata, such as the set of directories that are created (to be bale to generated an undo file and delete them).
+/// An action can be either a move, in which case when the plan is executed the
+/// file will be moved to said directory, or a rename.
+/// The plan also stores some metadata, such as the set of directories that are
+/// created (to include deletion instructions in an undo file), whether or not
+/// git is to be used to perform actions on the filesystem, and string lengths
+/// for presentation.
 struct Plan {
     pub actions: BTreeMap<PathBuf, Action>,
     dirs: HashSet<PathBuf>,
@@ -113,20 +138,23 @@ impl Plan {
         self
     }
 
-    /// Removes all actions in plan which would result in the file being renamed into itself or moved into the current directory.
+    /// Removes all actions in plan which would result in the file being renamed
+    /// into itself or moved into the current directory.
     pub fn clean(&mut self) {
         // Retains only the elements specified by the predicate.
         // In other words, remove all pairs for which the predicate returns false.
         self.actions.retain(|src, action| match action {
-            Action::Move { path: _ } => true,
+            Action::Move { .. } => true,
             Action::Rename { path } => src != path,
         })
     }
 
     pub fn insert(&mut self, src: PathBuf, action: Action) {
         let path = match action {
-            Action::Move { ref path } => {
-                // In the case of a move, the program will have created a directory into which the file will be moved, and it must be remembered so that the undo script can remove it.
+            Action::Move { ref path, .. } => {
+                // In the case of a move, the program will have created a
+                // directory into which the file will be moved, and it must be
+                // remembered so that the undo script can remove it.
                 self.dirs.insert(path.clone());
                 path
             }
@@ -151,7 +179,7 @@ impl Plan {
         let mdl = self.max_dst_len;
         for (src, action) in &self.actions {
             match action {
-                Action::Move { path } => {
+                Action::Move { path, .. } => {
                     println!("{:<msl$} moved to {:<mdl$}", src.display(), path.display(),);
                 }
                 Action::Rename { path } => {
@@ -169,8 +197,9 @@ impl Plan {
         println!("Result:");
         for (src, action) in &self.actions {
             match action {
-                Action::Move { path } => {
+                Action::Move { date_source, path } => {
                     println!("  move");
+                    println!("    * date source: {date_source:?}");
                     println!("    - {}", src.display());
                     println!("    > {}", path.display());
                 }
@@ -186,7 +215,7 @@ impl Plan {
     pub fn execute(&self) -> Result<(), Box<dyn Error>> {
         for (src, action) in &self.actions {
             match action {
-                Action::Move { path } => {
+                Action::Move { path, .. } => {
                     create_directory(path)?;
                     move_file(src, path)?;
                 }
@@ -203,7 +232,7 @@ impl Plan {
         let mut undo_file = std::fs::File::create("undo.sh")?;
         for (src, action) in &self.actions {
             match action {
-                Action::Move { path } => {
+                Action::Move { path, .. } => {
                     let mut dst_path = PathBuf::new();
                     dst_path.push(path);
                     dst_path.push(src.file_name().unwrap());
@@ -247,6 +276,18 @@ fn user_confirm() -> bool {
         .with_prompt("Do you want to continue?")
         .interact()
         .unwrap_or(false)
+}
+
+fn user_input() -> String {
+    Input::new().with_prompt(">").interact_text().unwrap()
+}
+
+/// Returns true if the directory entry begins with a period.
+fn is_hidden(entry: &Path) -> bool {
+    entry
+        .file_name()
+        .and_then(|s| s.to_str())
+        .map_or(false, |s| (s != "." || s != "./") && s.starts_with('.'))
 }
 
 /// Given a path, creates a directory.

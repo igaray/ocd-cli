@@ -1,20 +1,65 @@
 # OCD
 
 TODO:
-- [ ] add an option to tss to select/restrict data source, and show date source in plan
-- [ ] update date parser to understand IPhotos-style folder moment names
-- [ ] implement missing instructions
-    - [ ] finish pattern match implementation
-    - [ ] camel case join
-    - [ ] snake case join
-    - [ ] kebab case join
-    - [ ] camel case split
-    - [ ] snake case split
-    - [ ] kebab case split
-    - [ ] interactive reorder
-- [ ] allow user to pass in arbitrary strftime format strings to pattern match data generator florb
-- [ ] update handwritten lexer & parser
-- [ ] document
+- big: pattern match (parsing+apply), tui, logging
+- Maintenance
+  - [ ] use tracing for logging https://github.com/igaray/ocd-cli/issues/36
+  - [ ] use https://github.com/baoyachi/shadow-rs to remove build time hacks for version string
+  - [ ] update handwritten lexer & parser
+  - [ ] document (bring back old documentation and update) https://github.com/igaray/ocd-cli/issues/27
+  - [ ] use find_iter to capture all florbs at mrn/mod.rs:592
+  - [ ] move lalrpop tests to main ocd module and make parser-implementation agnostic, and use test cases to test the different parsers.
+  - [ ] add failure tests to handwritten lexer https://github.com/igaray/ocd-cli/issues/20
+  - [ ] add failure tests to handwritten parser https://github.com/igaray/ocd-cli/issues/21
+  - [ ] add failure tests to lalrpop parser
+  - [ ] add tests to tss https://github.com/igaray/ocd-cli/issues/25
+  - [ ] improve error handling https://github.com/igaray/ocd-cli/issues/30
+  - [ ] refactor case commands https://github.com/igaray/ocd-cli/issues/32
+  - [ ] refactor replace https://github.com/igaray/ocd-cli/issues/38
+  - [ ] newtype the filename buffer https://github.com/igaray/ocd-cli/issues/42
+  - [ ] setup coverage https://github.com/igaray/ocd-cli/issues/42
+- TSS
+  - [x] tss enhancements https://github.com/igaray/ocd-cli/issues/35
+        if date regex cant extract a data, try with exif data
+  - [x] show the date source (filename, exif, fs metadata) in the plan
+  - [ ] update date parser to understand IPhotos-style folder moment names
+  - [ ] add an option to tss to select/restrict data source
+        this is to allow controlling how the destination function works,
+        mostly to disallow filesystem metadata
+  - [ ] add an option to allow the user to specify which extensions are considered image files.
+- MRN
+  - LALRPOP
+    - [ ] finish moving all post processing steps over to the parser
+    - [ ] make the post processing functions used in the parser return lalrpop errors
+    - [ ] update the documentation to reflect the new grammar, both in README and also clap
+  - CHUMSKY
+  - [ ] allow user to pass in arbitrary strftime format strings to pattern match data generator florb
+  - implement missing instructions
+    - [ ] finish pattern match implementation https://github.com/igaray/ocd-cli/issues/15
+    - [ ] camel case join https://github.com/igaray/ocd-cli/issues/5
+    - [ ] snake case join https://github.com/igaray/ocd-cli/issues/9
+    - [ ] kebab case join https://github.com/igaray/ocd-cli/issues/7
+    - [ ] camel case split https://github.com/igaray/ocd-cli/issues/6
+    - [ ] snake case split https://github.com/igaray/ocd-cli/issues/10
+    - [ ] kebab case split https://github.com/igaray/ocd-cli/issues/8
+    - [ ] santize https://github.com/igaray/ocd-cli/issues/14
+    - [ ] interactive reorder https://github.com/igaray/ocd-cli/issues/16
+  - [ ] implement range checks
+  - [ ] remove interactive pattern match https://github.com/igaray/ocd-cli/issues/17
+  - [ ] improve ea https://github.com/igaray/ocd-cli/issues/37
+  - [ ] bug: improve inserte error message https://github.com/igaray/ocd-cli/issues/19
+  - [ ] bug: fix multiple periods in filename https://github.com/igaray/ocd-cli/issues/33
+- User interface
+  - [ ] decouple the engine from the ui, use a channel to inform events and allow ui to decide on presentation.
+  - [ ] review output wrt verbosity levels https://github.com/igaray/ocd-cli/issues/31
+  - [ ] add ratatui
+  - [ ] table output https://github.com/igaray/ocd-cli/issues/28
+  - [ ] progress bar while renaming https://github.com/igaray/ocd-cli/issues/29
+  - [ ] Do something with the output of the external git command when using git to rename files.
+  - [ ] implement a tracing subscriber that captures logs when in tui mode and prints them in a separate tab
+- ID3 fixer
+- Elephant Mode
+  - [ ] configuration file
 
 | old | new | notes                     |
 |-----|-----|---------------------------|
