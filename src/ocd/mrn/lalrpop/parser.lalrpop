@@ -1,13 +1,52 @@
-use crate::ocd::mrn::program::process_match_pattern;
-use crate::ocd::mrn::program::process_replace_pattern;
-use crate::ocd::mrn::program::{Instruction, InstructionError, Position, ReplaceArg};
-use lalrpop_util::ParseError;
-use std::str::FromStr;
+use crate::ocd::mrn::program::process_match;
+use crate::ocd::mrn::program::process_replace;
+use crate::ocd::mrn::program::{Instruction, OcdParseError, Position, ReplaceArg};
+use crate::ocd::mrn::lalrpop::tokens::Token;
+use crate::ocd::mrn::lalrpop::tokens::LexicalError;
 
 grammar;
 
 extern {
-    type Error = InstructionError;
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "stringvalue" => Token::StringValue(<String>),
+        "index" => Token::Index(<usize>),
+        "'" => Token::Apostrophe,
+        "," => Token::Comma,
+        "s" => Token::Sanitize,
+        "cl" => Token::CaseLower,
+        "cu" => Token::CaseUpper,
+        "ct" => Token::CaseTitle,
+        "cs" => Token::CaseSentence,
+        "jc" => Token::JoinCamel,
+        "js" => Token::JoinSnake,
+        "jk" => Token::JoinKebab,
+        "sc" => Token::SplitCamel,
+        "ss" => Token::SplitSnake,
+        "sk" => Token::SplitKebab,
+        "rdp" => Token::ReplaceDashPeriod,
+        "rds" => Token::ReplaceDashSpace,
+        "rdu" => Token::ReplaceDashUnderscore,
+        "rpd" => Token::ReplacePeriodDash,
+        "rps" => Token::ReplacePeriodSpace,
+        "rpu" => Token::ReplacePeriodUnderscore,
+        "rsd" => Token::ReplaceSpaceDash,
+        "rsp" => Token::ReplaceSpacePeriod,
+        "rsu" => Token::ReplaceSpaceUnderscore,
+        "rud" => Token::ReplaceUnderscoreDash,
+        "rup" => Token::ReplaceUnderscorePeriod,
+        "rus" => Token::ReplaceUnderscoreSpace,
+        "r" => Token::Replace,
+        "i" => Token::Insert,
+        "end" => Token::End,
+        "d" => Token::Delete,
+        "ea" => Token::ExtensionAdd,
+        "er" => Token::ExtensionRemove,
+        "o" => Token::Reorder,
+        "p" => Token::PatternMatch,
+    }
 }
 
 Sequence<T>: Vec<T> = {
@@ -56,32 +95,38 @@ Operation: Instruction = {
     "rus" => Instruction::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Space },
     "r" <p:StringValue> <r:StringValue> => Instruction::Replace{ pattern: ReplaceArg::Text(p), replace: ReplaceArg::Text(r) },
     "i" <p:Position> <s:StringValue> => Instruction::Insert{position: p, text: s},
-    "d" <f:Index> <t:Position> => Instruction::Delete{from: f, to: t},
+    "d" <f:"index"> <t:Position> => Instruction::Delete{from: f, to: t},
     "ea" <e:StringValue> => Instruction::ExtensionAdd(e),
     "er" => Instruction::ExtensionRemove,
-    "o" => Instruction::InteractiveReOrder,
-    "p" <pattern:StringValue> <r:StringValue> => {
-        let pattern = process_match_pattern(pattern);
-        let replace = process_replace_pattern(r);
-        Instruction::PatternMatch{ pattern, replace }
+    "o" => Instruction::Reorder,
+    "p" <m:StringValue> <r:StringValue> => {
+        let m = process_match(m);
+        let r = process_replace(r);
+        Instruction::PatternMatch{ match_pattern: m, replace_pattern: r }
         },
 }
 
 // A position may either be the keyword 'end' or an index.
 Position: Position = {
     "end" => Position::End,
-    <i:Index> => Position::Index(i),
+    <i:"index"> => Position::Index(i),
 }
 
 // An index is a non-negative integer.
+/* no longer necessary to convert from string to usize and handle errors here
 Index: usize = {
-    r"[0-9]+" =>? usize::from_str(<>).map_err(|error| {dbg!(error); ParseError::User{error: InstructionError::InvalidIndex}} )
+    <i:"index"> =>? {
+        if let Token::Index(idx) = i {
+            usize::from_str(idx).map_err(|error| {ParseError::User{error: OcdParseError::InvalidIndex}} )
+        }
+        else {
+            Err(ParseError::User{error: OcdParseError::InvalidIndex})
+        }
+    }
 };
+*/
 
 // A string value is any apostrophes-bounded character sequence which does not include apostrophes.
 StringValue: String = {
-    <value: r"'[^']*'"> =>
-        {
-            value.trim_matches('\'').to_string()
-        }
+    <value:"stringvalue"> => value.trim_matches('\'').to_string()
 };

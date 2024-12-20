@@ -61,7 +61,8 @@ pub struct MassRenameArgs {
     #[arg(long)]
     git: bool,
 
-    #[arg(help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
+    #[arg(
+        help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
 If --dir is specified as well it will be concatenated with the glob pattern.
 If --recurse is also specified it will be ignored."#
     )]
@@ -179,8 +180,9 @@ fn parse_with_handwritten(
 }
 
 fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
+    let lexer = crate::ocd::mrn::lalrpop::lexer::Lexer::new(&config.input);
     let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
-    let mut program = parser.parse(&config.input)?;
+    let mut program = parser.parse(lexer)?;
     program.check()?;
     Ok(program)
 }
@@ -409,7 +411,10 @@ fn apply_instruction(
                 let filename = apply_delete(filename, *from, to);
                 rename_file(path, filename);
             }
-            Instruction::PatternMatch { pattern, replace } => {
+            Instruction::PatternMatch {
+                match_pattern: pattern,
+                replace_pattern: replace,
+            } => {
                 let filename = apply_pattern_match(config, index, filename, pattern, replace);
                 rename_file(path, filename);
             }
@@ -419,7 +424,7 @@ fn apply_instruction(
             Instruction::ExtensionRemove => {
                 path.set_extension("");
             }
-            Instruction::InteractiveReOrder => {
+            Instruction::Reorder => {
                 let filename = apply_interactive_reorder(filename);
                 rename_file(path, filename);
             }
@@ -726,87 +731,3 @@ fn apply_interactive_reorder(_filename: &str) -> String {
     // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
 }
-
-// ----------------------------------------------------------------------------
-// This is from program.rs
-/*
-#[derive(Debug)]
-pub struct ReplacePattern {
-    pub components: Vec<ReplacePatternComponent>,
-}
-
-#[derive(Debug)]
-pub enum ReplacePatternComponent {
-    Literal(String),
-    RandomNumberGenerator {
-        start: Option<usize>,
-        end: Option<usize>,
-        padding: Option<usize>,
-    },
-    SequentialNumberGenerator {
-        offset: Option<usize>,
-        padding: Option<usize>,
-    },
-}
-*/
-
-
-// This is from parser.lalrpop
-/*
-ReplacePattern: Vec<ReplacePatternComponent> = {
-    "'" <rpcs: ReplaceComponents> "'" =>
-        {
-            println!("Parsed a ReplacePattern sequence: {:?}", rpcs);
-            rpcs
-        }
-}
-
-ReplaceComponents = Sequence<ReplaceComponent>;
-
-ReplaceComponent: ReplacePatternComponent = {
-    RandomNumberGenerator,
-    SequentialNumberGenerator,
-    <value: r"[a-yA-Y]+"> => ReplacePatternComponent::Literal(value.to_string()),
-}
-*/
-
-/*
-RandomNumberGenerator: ReplacePatternComponent = {
-   "{rng}" => ReplacePatternComponent::RandomNumberGenerator{start: Some(0), end: Some(100), padding: None},
-   "{rng" <start: r"[0-9]+"> "}" =>? {
-       let start = usize::from_str(start).map_err(|error| {dbg!(error); ParseError::User{error: InstructionError::InvalidIndex}} )?;
-       Ok(ReplacePatternComponent::RandomNumberGenerator{start: Some(start), end: None, padding: None})
-   },
-}
-*/
-
-/*
-SequentialNumberGenerator: ReplacePatternComponent = {
-    "{seq}" => ReplacePatternComponent::SequentialNumberGenerator{offset: None, padding: None},
-}
-*/
-
-/*
-   "{rng" <start: r"[0-9]+"> "-" <end: r"[0-9]+"> "}" => {
-   },
- */
-
-/*
-        // Process replace pattern random number generators
-        // Replace {rand} with random number between 0 and 100.
-        // If {rand500} the number will be between 0 and 500
-        // If {rand10-20} the number will be between 10 and 20
-        // If you add ,5 the number will be padded with 5 digits
-        // ie. {rand20,5} will be a number between 0 and 20 of 5 digits (00012)
-
-    Literal(String),
-    {
-        start: Option<usize>,
-        end: Option<usize>,
-        padding: Option<usize>,
-    },
-    {
-        offset: Option<usize>,
-        padding: Option<usize>,
-    },
-*/

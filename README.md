@@ -30,6 +30,18 @@ TODO:
 - MRN
   - LALRPOP
     - [ ] finish moving all post processing steps over to the parser
+      - finish replace pattern parser prototype
+        - [x] finish sng gramar rules
+        - [x] rng parser tests
+        - [x] finish sng lexer tests
+        - [x] sng parser tests
+        - [x] date generator patterns, lexer+parser+tests
+        - move everything over to ocd
+        - apply
+        - match pattern processing, extracts matches
+        - match the match extracts to florb indexes
+        - have separate lexical and parser error types
+        - study the possibility of using a single lexer&parser
     - [ ] make the post processing functions used in the parser return lalrpop errors
     - [ ] update the documentation to reflect the new grammar, both in README and also clap
   - CHUMSKY
@@ -51,12 +63,12 @@ TODO:
   - [ ] bug: fix multiple periods in filename https://github.com/igaray/ocd-cli/issues/33
 - User interface
   - [ ] decouple the engine from the ui, use a channel to inform events and allow ui to decide on presentation.
+  - [ ] implement a tracing subscriber that captures logs when in tui mode and prints them in a separate tab
   - [ ] review output wrt verbosity levels https://github.com/igaray/ocd-cli/issues/31
   - [ ] add ratatui
   - [ ] table output https://github.com/igaray/ocd-cli/issues/28
   - [ ] progress bar while renaming https://github.com/igaray/ocd-cli/issues/29
   - [ ] Do something with the output of the external git command when using git to rename files.
-  - [ ] implement a tracing subscriber that captures logs when in tui mode and prints them in a separate tab
 - ID3 fixer
 - Elephant Mode
   - [ ] configuration file
@@ -378,6 +390,7 @@ This is the most useful operator and is taken directly from **pyRenamer**'s code
 ``{X}``         | Numbers, letters, and spaces
 ``{@}``         | Trash
 ``{numX+Y}``    | Generates a number, padded to **X** characters with leading 0s, stepping by **Y**. **X** may be absent. **Y** may be absent and defaults to 1.
+``{numX+Y,Z}``  | Generates a number, padded to **X** characters with leading 0s, stepping by **Y**. **X** may be absent. **Y** may be absent and defaults to 1.
 ``{rand}``      | Generates a random number from 0 to 100.
 ``{randX}``     | Generates a random number from 0 to **X**.
 ``{randX-Y}``   | Generates a random number from **X** to **Y**.

@@ -6,7 +6,7 @@ usage:
 	@echo "usage:"
 	@echo "    build:     build the command"
 	@echo "    install:   installs the command binary executable into $HOME/.local/bin/"
-	@echo "    uninstall: removes the command binary executable from $HOME/.local/bin/s"
+	@echo "    uninstall: removes the command binary executable from $HOME/.local/bin/"
 
 .PHONY: build
 build:
