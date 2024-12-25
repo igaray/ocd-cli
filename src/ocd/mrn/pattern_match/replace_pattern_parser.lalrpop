@@ -1,0 +1,138 @@
+use crate::ocd::mrn::pattern_match::replace_pattern_tokens::Token;
+use crate::ocd::mrn::pattern_match::replace_pattern_tokens::LexicalError;
+use crate::ocd::mrn::program::ReplacePatternComponent;
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "comma" => Token::Comma,
+        "plus" => Token::Plus,
+        "dash" => Token::Dash,
+        "obrace" => Token::OpeningBrace,
+        "cbrace" => Token::ClosingBrace,
+        "date" => Token::DateGenerator,
+        "sng" => Token::SequentialNumberGenerator,
+        "rng" => Token::RandomNumberGenerator,
+        "florb" => Token::Florb(<usize>),
+        "int" => Token::Integer(<usize>),
+        "whitespace" => Token::Whitespace(<String>),
+        "text" => Token::Text(<String>),
+    }
+}
+
+List<T>: Vec<T> = {
+    <T> => vec![<>],
+        <mut s:List<T>> <n:T> => {
+            s.push(n);
+            s
+        },
+};
+
+pub ReplacePattern = List<RPC>;
+
+RPC: ReplacePatternComponent = {
+    "comma" => ReplacePatternComponent::Literal(String::from(",")),
+    "plus" => ReplacePatternComponent::Literal(String::from("+")),
+    "dash" => ReplacePatternComponent::Literal(String::from("-")),
+    "obrace" => ReplacePatternComponent::Literal(String::from("{")),
+    "cbrace" => ReplacePatternComponent::Literal(String::from("}")),
+    "date" => ReplacePatternComponent::DateGenerator,
+    "sng" <sng:SNG> => sng,
+    "rng" <rng:RNG> => rng,
+    <t:"florb"> => ReplacePatternComponent::Florb(t),
+    <t:"int"> => ReplacePatternComponent::Literal(t.to_string()),
+    <t:"whitespace"> => ReplacePatternComponent::Literal(t.to_string()),
+    <t:"text"> => ReplacePatternComponent::Literal(t.to_string())
+}
+
+RNG: ReplacePatternComponent = {
+    "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: 1,
+        end: 100,
+        padding: 0,
+    },
+    <end:"int"> "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: 1,
+        end: end,
+        padding: 0,
+    },
+    <start:"int"> "dash" <end:"int"> "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: start,
+        end: end,
+        padding: 0,
+    },
+    "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: 1,
+        end: 100,
+        padding: pad,
+    },
+    <end:"int"> "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: 1,
+        end: end,
+        padding: pad,
+    },
+    <start:"int"> "dash" <end:"int"> "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::RandomNumberGenerator{
+        start: start,
+        end: end,
+        padding: pad,
+    },
+}
+
+/*
+        sng         | start | step | padding |
+        {sng}       |    no |   no |      no |
+        {sng,5}     |    no |   no |     yes |
+        {sng+2}     |    no |  yes |      no |
+        {sng+2,5}   |    no |  yes |     yes |
+        {sng10}     |   yes |   no |      no |
+        {sng10,5}   |   yes |   no |     yes |
+        {sng10+2}   |   yes |  yes |      no |
+        {sng10+2,5} |   yes |  yes |     yes |
+*/
+
+SNG: ReplacePatternComponent = {
+    "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: 1,
+        step: 1,
+        padding: 0,
+    },
+    "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: 1,
+        step: 1,
+        padding: pad,
+    },
+    "plus" <step:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: 1,
+        step: step,
+        padding: 0,
+    },
+    "plus" <step:"int"> "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: 1,
+        step: step,
+        padding: pad,
+    },
+    <start:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: start,
+        step: 1,
+        padding: 0,
+    },
+    <start:"int"> "comma" <pad:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: start,
+        step: 1,
+        padding: pad,
+    },
+    <start:"int"> "plus" <step:"int"> "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: start,
+        step: step,
+        padding: 0,
+    },
+    <start:"int"> "plus" <step:"int"> "comma" <pad:"int">  "cbrace" => ReplacePatternComponent::SequentialNumberGenerator{
+        start: start,
+        step: step,
+        padding: pad,
+    },
+}

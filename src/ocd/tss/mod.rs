@@ -2,8 +2,8 @@
 //!
 //! This command sorts image files into folders named after a date extracted from the image.
 
+use crate::ocd::date::DateSource;
 use crate::ocd::Action;
-use crate::ocd::DateSource;
 use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
@@ -12,11 +12,9 @@ use clap::Args;
 use exif::In;
 use exif::Tag;
 use exif::Value;
-use regex::Regex;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
 
@@ -227,23 +225,8 @@ fn destination(config: &TimeStampSortArgs, path: &PathBuf) -> Option<(DateSource
 fn filename_date(base_dir: &Path, file_name: &Path) -> Option<PathBuf> {
     file_name
         .to_str()
-        .and_then(regex_date)
+        .and_then(crate::ocd::date::regex_date)
         .map(|(year, month, day)| base_dir.join(format!("{year}-{month}-{day}")))
-}
-
-/// Given a string, extracts a date.
-fn regex_date(filename: &str) -> Option<(&str, &str, &str)> {
-    // YYYY?MM?DD or YYYYMMDD,
-    // where YYYY in [1000-2999], MM in [01-12], DD in [01-31]
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\D*(1\d\d\d|20\d\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*").unwrap()
-    });
-    RE.captures(filename).map(|captures| {
-        let year = captures.get(1).unwrap().as_str();
-        let month = captures.get(2).unwrap().as_str();
-        let day = captures.get(3).unwrap().as_str();
-        (year, month, day)
-    })
 }
 
 /// Attempts to extract the creation data from the EXIF data in an image file.
@@ -320,4 +303,43 @@ fn metadata_date(config: &TimeStampSortArgs, path: &PathBuf) -> Option<PathBuf> 
             }
         })
     })
+}
+
+#[cfg(test)]
+mod test {
+
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    // #[test]
+    // fn maybe_insert() {
+    //     todo!();
+    // }
+
+    #[test]
+    fn filename_date1() {
+        let base_dir = Path::new("./base_dir");
+        let file_name = Path::new("An image file from 2024-12-31.jpg");
+        let expected = Some(PathBuf::from("./base_dir/2024-12-31"));
+        let result = super::filename_date(base_dir, file_name);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn filename_date2() {
+        let base_dir = Path::new("./base_dir");
+        let file_name = Path::new("An image file from 20241231.jpg");
+        let expected = Some(PathBuf::from("./base_dir/2024-12-31"));
+        let result = super::filename_date(base_dir, file_name);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn filename_date3() {
+        let base_dir = Path::new("./base_dir");
+        let file_name = Path::new("An image file from 2024-12-01 to 2024-12-31.jpg");
+        let expected = Some(PathBuf::from("./base_dir/2024-12-01"));
+        let result = super::filename_date(base_dir, file_name);
+        assert_eq!(expected, result);
+    }
 }

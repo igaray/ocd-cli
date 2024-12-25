@@ -1,4 +1,4 @@
-use crate::ocd::mrn::lalrpop::tokens::{LexicalError, Token};
+use crate::ocd::mrn::pattern_match::replace_pattern_tokens::{LexicalError, Token};
 use logos::{Logos, SpannedIter};
 
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
@@ -22,7 +22,7 @@ impl<'input> Iterator for Lexer<'input> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.token_stream.next().map(|(token, span)| {
-            dbg!(&token);
+            // dbg!(&token);
             Ok((span.start, token?, span.end))
         })
     }

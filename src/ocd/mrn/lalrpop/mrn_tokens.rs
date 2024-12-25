@@ -5,6 +5,7 @@ use std::num::ParseIntError;
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
+    InvalidReplacePattern,
     #[default]
     InvalidToken,
 }
@@ -24,7 +25,7 @@ impl From<ParseIntError> for LexicalError {
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(skip r"[ \t\n\f]+", error = LexicalError)]
 pub enum Token {
-    #[regex("'[^']*'", |lex| lex.slice().to_string())]
+    #[regex("'[^']*'", |lex| lex.slice().trim_matches('\'').to_string())]
     StringValue(String),
     #[regex("[0-9]+", |lex| lex.slice().parse())]
     Index(usize),

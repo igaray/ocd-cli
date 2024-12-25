@@ -1,7 +1,9 @@
 //! Main OCD module.
+pub mod date;
 pub mod mrn;
 pub mod tss;
 
+use crate::ocd::date::DateSource;
 use clap::ValueEnum;
 use dialoguer::Confirm;
 use dialoguer::Input;
@@ -66,13 +68,6 @@ trait Speaker {
     /// }
     /// ```
     fn verbosity(&self) -> Verbosity;
-}
-
-#[derive(Debug)]
-enum DateSource {
-    Filename,
-    Exif,
-    Filesystem,
 }
 
 /// An action on a file can be either move the file to a new directory,
@@ -220,7 +215,7 @@ impl Plan {
                     move_file(src, path)?;
                 }
                 Action::Rename { path } => {
-                    rename_file(self.use_git, src, path)?;
+                    fs_rename_file(self.use_git, src, path)?;
                 }
             };
         }
@@ -312,7 +307,16 @@ fn move_file(src: &PathBuf, dir: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-fn rename_file(use_git: bool, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
+fn rename_file(path: &mut PathBuf, filename: String) {
+    let extension = match path.extension() {
+        None => String::new(),
+        Some(extension) => String::from(extension.to_str().unwrap()),
+    };
+    path.set_file_name(filename);
+    path.set_extension(extension);
+}
+
+fn fs_rename_file(use_git: bool, src: &PathBuf, dst: &PathBuf) -> io::Result<()> {
     if use_git {
         let src = src.to_str().unwrap();
         let dst = dst.to_str().unwrap();

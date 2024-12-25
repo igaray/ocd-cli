@@ -13,6 +13,10 @@ use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
 use clap::Args;
 use clap::ValueEnum;
+use heck::ToKebabCase;
+use heck::ToSnakeCase;
+use heck::ToTitleCase;
+use heck::ToUpperCamelCase;
 use regex::Regex;
 use std::error::Error;
 use std::fs;
@@ -22,6 +26,7 @@ use walkdir::WalkDir;
 
 pub mod handwritten;
 pub mod lalrpop;
+pub mod pattern_match;
 pub mod program;
 
 /// Arguments to the Mass Re-Name
@@ -60,13 +65,6 @@ pub struct MassRenameArgs {
     #[arg(help = "Rename files by calling `git mv`")]
     #[arg(long)]
     git: bool,
-
-    #[arg(
-        help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
-If --dir is specified as well it will be concatenated with the glob pattern.
-If --recurse is also specified it will be ignored."#
-    )]
-    glob: Option<String>,
 
     #[arg(short = 'm')]
     #[arg(long)]
@@ -114,9 +112,14 @@ p <match> <pattern>   Pattern match
 ip                    Interactive pattern match
 it                    Interactive tokenize
     "#)]
-    #[arg(long)]
-    #[arg(short = 'c')]
     input: String,
+
+    #[arg(
+        help = r#"Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
+If --dir is specified as well it will be concatenated with the glob pattern.
+If --recurse is also specified it will be ignored."#
+    )]
+    glob: Option<String>,
 }
 
 impl Speaker for MassRenameArgs {
@@ -169,9 +172,7 @@ pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
     Ok(())
 }
 
-fn parse_with_handwritten(
-    _config: &MassRenameArgs,
-) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
+fn parse_with_handwritten(_config: &MassRenameArgs) -> Result<Program, Box<dyn Error + '_>> {
     // let rules_raw = config.rules_raw.clone().unwrap();
     // let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
     // crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
@@ -179,10 +180,11 @@ fn parse_with_handwritten(
     todo!("Parsing with the handwritten parser is not implemented yet!")
 }
 
-fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Vec<Instruction>, Box<dyn Error + '_>> {
-    let lexer = crate::ocd::mrn::lalrpop::lexer::Lexer::new(&config.input);
-    let parser = crate::ocd::mrn::lalrpop::parser::ProgramParser::new();
-    let mut program = parser.parse(lexer)?;
+fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Program, Box<dyn Error + '_>> {
+    let lexer = crate::ocd::mrn::lalrpop::mrn_lexer::Lexer::new(&config.input);
+    let parser = crate::ocd::mrn::lalrpop::mrn_parser::ProgramParser::new();
+    let instructions = parser.parse(lexer)?;
+    let mut program = Program::new(instructions);
     program.check()?;
     Ok(program)
 }
@@ -326,10 +328,10 @@ fn entries(config: &MassRenameArgs) -> Result<Vec<PathBuf>, Box<dyn Error>> {
 
 fn apply_program(
     config: &MassRenameArgs,
-    program: Vec<crate::ocd::mrn::program::Instruction>,
+    program: Program,
     plan: &mut Plan,
 ) -> Result<(), Box<dyn Error>> {
-    for instruction in &program {
+    for instruction in program.instructions() {
         for (index, (src, action)) in plan.actions.iter_mut().enumerate() {
             if config.verbosity() == Verbosity::Debug {
                 println!("Applying");
@@ -357,66 +359,66 @@ fn apply_instruction(
         match instruction {
             Instruction::Sanitize => {
                 let filename = apply_sanitize(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::CaseLower => {
                 let filename = apply_lower_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::CaseUpper => {
                 let filename = apply_upper_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::CaseTitle => {
                 let filename = apply_title_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::CaseSentence => {
                 let filename = apply_sentence_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::JoinCamel => {
                 let filename = apply_join_camel_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::JoinSnake => {
                 let filename = apply_join_snake_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::JoinKebab => {
                 let filename = apply_join_kebab_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::SplitCamel => {
                 let filename = apply_split_camel_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::SplitSnake => {
                 let filename = apply_split_snake_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::SplitKebab => {
                 let filename = apply_split_kebab_case(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::Replace { pattern, replace } => {
                 let filename = apply_replace(filename, pattern, replace);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::Insert { position, text } => {
                 let filename = apply_insert(filename, text, position);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::Delete { from, to } => {
                 let filename = apply_delete(filename, *from, to);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::PatternMatch {
                 match_pattern: pattern,
                 replace_pattern: replace,
             } => {
-                let filename = apply_pattern_match(config, index, filename, pattern, replace);
-                rename_file(path, filename);
+                let filename = pattern_match::apply(config, index, filename, pattern, replace);
+                crate::ocd::rename_file(path, filename);
             }
             Instruction::ExtensionAdd(extension) => {
                 path.set_extension(extension);
@@ -426,19 +428,10 @@ fn apply_instruction(
             }
             Instruction::Reorder => {
                 let filename = apply_interactive_reorder(filename);
-                rename_file(path, filename);
+                crate::ocd::rename_file(path, filename);
             }
         };
     }
-}
-
-fn rename_file(path: &mut PathBuf, filename: String) {
-    let extension = match path.extension() {
-        None => String::new(),
-        Some(extension) => String::from(extension.to_str().unwrap()),
-    };
-    path.set_file_name(filename);
-    path.set_extension(extension);
 }
 
 fn apply_sanitize(filename: &str) -> String {
@@ -461,23 +454,23 @@ fn apply_upper_case(filename: &str) -> String {
 }
 
 fn apply_title_case(filename: &str) -> String {
+    // Original
+    // let mut titlecase_words = Vec::new();
+    // for word in filename.split_whitespace() {
+    //     let titlecase_word = titlecase_word(word);
+    //     titlecase_words.push(titlecase_word);
+    // }
+    // titlecase_words.join(" ")
+
     // An alternative is this single-line implementation:
     // voca_rs::case::title_case(filename)
     // but it doesn't have the same behavior.
-    let mut titlecase_words = Vec::new();
-    for word in filename.split_whitespace() {
-        let titlecase_word = titlecase_word(word);
-        titlecase_words.push(titlecase_word);
-    }
-    titlecase_words.join(" ")
+
+    filename.to_title_case()
 }
 
 fn apply_sentence_case(filename: &str) -> String {
-    // An alternative is this single-line implementation:
-    // voca_rs::case::capitalize(filename, true)
-    // but it doesn't have the same behavior.
-    // Split the words in the filename separated by whitespace,
-    // and collect them into a vector so we can call split_first()
+    // Original
     let words: Vec<&str> = filename.split_whitespace().collect();
     if let Some((first_word, remaining_words)) = words.split_first() {
         let titlecase_word = titlecase_word(first_word);
@@ -489,6 +482,12 @@ fn apply_sentence_case(filename: &str) -> String {
     } else {
         String::from(filename)
     }
+
+    // An alternative is this single-line implementation:
+    // voca_rs::case::capitalize(filename, true)
+    // but it doesn't have the same behavior.
+    // Split the words in the filename separated by whitespace,
+    // and collect them into a vector so we can call split_first()
 }
 
 fn titlecase_word(word: &str) -> String {
@@ -507,28 +506,28 @@ fn titlecase_word(word: &str) -> String {
     titlecase_word
 }
 
-fn apply_join_camel_case(_filename: &str) -> String {
-    todo!("Camel case join instruction not implemented yet!")
+fn apply_join_camel_case(filename: &str) -> String {
+    filename.to_upper_camel_case()
 }
 
-fn apply_join_snake_case(_filename: &str) -> String {
-    todo!("Snake case join instruction not implemented yet!")
+fn apply_join_snake_case(filename: &str) -> String {
+    filename.to_snake_case()
 }
 
-fn apply_join_kebab_case(_filename: &str) -> String {
-    todo!("Kebab case join instruction not implemented yet!")
+fn apply_join_kebab_case(filename: &str) -> String {
+    filename.to_kebab_case()
 }
 
-fn apply_split_camel_case(_filename: &str) -> String {
-    todo!("Camel case split instruction not implemented yet!")
+fn apply_split_camel_case(filename: &str) -> String {
+    filename.to_title_case()
 }
 
-fn apply_split_snake_case(_filename: &str) -> String {
-    todo!("Snake case split instruction not implemented yet!")
+fn apply_split_snake_case(filename: &str) -> String {
+    filename.to_title_case()
 }
 
-fn apply_split_kebab_case(_filename: &str) -> String {
-    todo!("Kebab case split instruction is not implemented yet!")
+fn apply_split_kebab_case(filename: &str) -> String {
+    filename.to_title_case()
 }
 
 fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
@@ -579,149 +578,6 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     s
 }
 
-fn apply_pattern_match(
-    config: &MassRenameArgs,
-    index: usize,
-    filename: &str,
-    match_pattern: &str,
-    replace_pattern: &str,
-) -> String {
-    // A florb is a string which is a shorthand for a regex, or an action to take, such as {A}, {N}, {X}, {D}
-    static FLORB_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\{[aA]\}|\{[nN]\}|\{[xX]\}|\{[dD]\}").unwrap());
-
-    if config.verbosity() == Verbosity::Debug {
-        println!("Pattern match instruction");
-        println!("    index: {:?}", index);
-        println!("    filename: {:?}", filename);
-        println!("    input match pattern: {:?}", match_pattern);
-        println!("    input replace pattern: {:?}", replace_pattern);
-    }
-
-    // TODO: fix this by calling find_iter
-    let florbs: Vec<&str> = FLORB_REGEX
-        .captures_iter(match_pattern)
-        .map(|c: regex::Captures| c.get(0).unwrap().as_str())
-        .collect();
-    if config.verbosity() == Verbosity::Debug {
-        println!("    florbs: {:?}", florbs);
-    }
-
-    if config.verbosity() == Verbosity::Debug {
-        println!("    match pattern: {:?}", match_pattern);
-        println!("    replace pattern: {:?}", replace_pattern);
-    }
-
-    /*
-    // Extract data from filename using the match pattern, and then construct a
-    // new filename replacing the fields in the replace pattern with the
-    // corresponding extracted data
-    let match_regex = Regex::new(&match_pattern).unwrap();
-    match match_regex.captures(filename) {
-        None => {
-            if config.verbosity() == Verbosity::Debug {
-                println!("    No matches on {:?}", filename);
-            }
-            // Nothing is to be done, so the same filename is returned.
-            String::from(filename)
-        }
-        Some(capture) => {
-            let mut capture_index = 1;
-            for (florb_index, florb) in florbs.iter().enumerate() {
-                let mark = format!("{{{}}}", florb_index + 1);
-                match *florb {
-                    "{A}" | "{N}" | "{X}" => {
-                        let content = capture.get(capture_index).unwrap().as_str();
-                        replace_pattern = replace_pattern.replace(&mark, content);
-                        capture_index += 1;
-                    }
-                    "{D}" => {
-                        let date_text = capture.get(capture_index).unwrap().as_str();
-                        match try_ios_date_format_recognition(date_text) {
-                            None => {
-                                // TODO: If the iOS date format regex doesn't recognize anythin, try with a more general strftime format
-                                todo!("iOS Date recognition failed, fallback is not implemented!");
-                            },
-                            Some(content) => {
-                                replace_pattern = replace_pattern.replace(&mark, &content);
-                                capture_index += 1;
-                            }
-                        }
-                    }
-                    _ => {
-                        panic!("Unrecognized florb!");
-                    }
-                }
-            }
-            replace_pattern
-        }
-    }
-    */
-    String::from("")
-}
-
-/*
-fn try_ios_date_format_recognition(date_text: &str) -> Option<String> {
-    // This regex recognizes human-readable dates and its subparts
-    static IOS_DATE_FORMAT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)(?P<d>\d{1,2})\s(?P<m>January|February|March|April|May|June|July|August|September|October|November|December)\s(?P<y>\d{1,4})").unwrap()
-    });
-
-    match IOS_DATE_FORMAT_REGEX.captures(date_text) {
-        None => None,
-        Some(date_capture) => {
-            let day_text = format!(
-                "{:02}",
-                date_capture
-                    .name("d")
-                    .unwrap()
-                    .as_str()
-                    .parse::<u32>()
-                    .unwrap()
-            );
-            let month_text = month_to_number(date_capture.name("m").unwrap().as_str());
-            let year_text = format!(
-                "{:02}",
-                date_capture
-                    .name("y")
-                    .unwrap()
-                    .as_str()
-                    .parse::<u32>()
-                    .unwrap()
-            );
-            let mut content = String::new();
-            content.push_str(&year_text);
-            content.push('-');
-            content.push_str(&month_text);
-            content.push('-');
-            content.push_str(&day_text);
-            Some(content)
-        }
-    }
-}
-
-fn month_to_number(month: &str) -> String {
-    let month = match month {
-        "jan" | "Jan" | "january" | "January" => "01",
-        "feb" | "Feb" | "february" | "February" => "02",
-        "mar" | "Mar" | "march" | "March" => "03",
-        "apr" | "Apr" | "april" | "April" => "04",
-        "may" | "May" => "05",
-        "jun" | "Jun" | "june" | "June" => "06",
-        "jul" | "Jul" | "july" | "July" => "07",
-        "aug" | "Aug" | "august" | "August" => "08",
-        "sep" | "Sep" | "september" | "September" => "09",
-        "oct" | "Oct" | "october" | "October" => "10",
-        "nov" | "Nov" | "november" | "November" => "11",
-        "dec" | "Dec" | "december" | "December" => "12",
-        unexpected => {
-            panic!("Unknown month value! {}", unexpected);
-        }
-    };
-    String::from(month)
-}
-*/
-
 fn apply_interactive_reorder(_filename: &str) -> String {
     // split filename into substrings
     // print each substring with its index below
@@ -730,4 +586,115 @@ fn apply_interactive_reorder(_filename: &str) -> String {
     // process input into a series of indices
     // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
+}
+
+#[cfg(test)]
+mod test {
+    // use crate::ocd::mrn::apply_camel_case_join;
+    // use crate::ocd::mrn::apply_camel_case_split;
+    use crate::ocd::mrn::apply_delete;
+    use crate::ocd::mrn::apply_insert;
+    use crate::ocd::mrn::apply_join_camel_case;
+    use crate::ocd::mrn::apply_lower_case;
+    use crate::ocd::mrn::apply_replace;
+    use crate::ocd::mrn::apply_sanitize;
+    use crate::ocd::mrn::apply_sentence_case;
+    use crate::ocd::mrn::apply_split_camel_case;
+    use crate::ocd::mrn::apply_title_case;
+    use crate::ocd::mrn::apply_upper_case;
+    // use crate::ocd::mrn::pattern_match;
+    use crate::ocd::mrn::Position;
+
+    macro_rules! t {
+        ($t:ident : $s1:expr => $s2:expr) => {
+            #[test]
+            fn $t() {
+                assert_eq!($s1, $s2)
+            }
+        };
+    }
+
+    // t!(test3: "MixedUP CamelCase, with some Spaces" => "Mixed Up Camel Case With Some Spaces");
+    // t!(test4: "mixed_up_ snake_case, with some _spaces" => "Mixed Up Snake Case With Some Spaces");
+    // t!(test5: "kebab-case" => "Kebab Case");
+    // t!(test6: "SHOUTY_SNAKE_CASE" => "Shouty Snake Case");
+    // t!(test7: "snake_case" => "Snake Case");
+    // t!(test8: "this-contains_ ALLKinds OfWord_Boundaries" => "This Contains All Kinds Of Word Boundaries");
+
+    t!(lower_case_test:
+        apply_lower_case("LoWeRcAsE") => "lowercase");
+    t!(upper_case_test:
+        apply_upper_case("UpPeRcAsE") => "UPPERCASE");
+    // t!(title_case_test_1:
+    //     apply_title_case("A tItLe HaS mUlTiPlE wOrDs") => "A Title Has Multiple Words");
+    // t!(title_case_test_2:
+    //     apply_title_case("XΣXΣ baﬄe") => "Xσxσ Baﬄe");
+    t!(sentence_case_test_1:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    t!(sentence_case_test_2:
+        apply_sentence_case("a sentence has multiple words") => "A sentence has multiple words");
+    t!(sentence_case_test_3:
+        apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
+    t!(sentence_case_test_4:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    t!(camel_case_join_test:
+        apply_join_camel_case("Camel case Join") => "CamelCaseJoin");
+    t!(camel_case_split_test_1:
+        apply_split_camel_case("CamelCase") => "Camel Case");
+    t!(camel_case_split_test_2:
+        apply_split_camel_case("CamelCaseSplit") => "Camel Case Split");
+    t!(camel_case_split_test_3:
+        apply_split_camel_case("XMLHttpRequest") => "Xml Http Request");
+    // t!(replace_test:
+    //     apply_replace("aa bbccdd ee", "cc", "ff") => "aa bbffdd ee");
+    // t!(replace_space_dash_test:
+    //     apply_replace("aa bb cc dd", " ", "-") => "aa-bb-cc-dd");
+    // t!(replace_space_period_test:
+    //     apply_replace("aa bb cc dd", " ", ".") => "aa.bb.cc.dd");
+    // t!(replace_space_under_test:
+    //     apply_replace("aa bb cc dd", " ", "_") => "aa_bb_cc_dd");
+    // t!(replace_dash_period_test:
+    //     apply_replace("aa-bb-cc-dd", "-", ".") => "aa.bb.cc.dd");
+    // t!(replace_dash_space_test:
+    //     apply_replace("aa-bb-cc-dd", "-", " ") => "aa bb cc dd");
+    // t!(replace_dash_under_test:
+    //     apply_replace("aa-bb-cc-dd", "-", "_") => "aa_bb_cc_dd");
+    // t!(replace_period_dash_test:
+    //     apply_replace("aa.bb.cc.dd", ".", "-") => "aa-bb-cc-dd");
+    // t!(replace_period_space_test:
+    //     apply_replace("aa.bb.cc.dd", ".", " ") => "aa bb cc dd");
+    // t!(replace_period_under_test:
+    //     apply_replace("aa.bb.cc.dd", ".", "_") => "aa_bb_cc_dd");
+    // t!(replace_under_dash_test:
+    //     apply_replace("aa_bb_cc_dd", "_", "-") => "aa-bb-cc-dd");
+    // t!(replace_under_period_test:
+    //     apply_replace("aa_bb_cc_dd", "_", ".") => "aa.bb.cc.dd");
+    // t!(replace_under_space_test:
+    //     apply_replace("aa_bb_cc_dd", "_", " ") => "aa bb cc dd");
+    // t!(pattern_match_test_1:
+    //     pattern_match::apply(0, "aa bb", "{X} {X}", "{2} {1}") => "bb aa");
+    // t!(pattern_match_test_2:
+    //     pattern_match::apply(0, "Dave Brubeck - 01. Take five", "{X} - {N}. {X}", "{1} {2} {3}") => "Dave Brubeck 01 Take five");
+    // t!(pattern_match_test_3:
+    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{1} {2}") => "Bahia Blanca 2019-10-21");
+    // t!(pattern_match_test_4:
+    //     pattern_match::apply(0, "Foo 123 B_a_r", "{A} {N} {X}", "{3} {2} {1}") => "B_a_r 123 Foo");
+    // t!(pattern_match_test_5:
+    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{2} {1}") => "2019-10-21 Bahia Blanca");
+    // t!(pattern_match_test_6:
+    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019, FooBarBaz", "{X}, {D}, {X}", "{2} {1} {3}") => "2019-10-21 Bahia Blanca FooBarBaz");
+    t!(insert_test_1:
+        apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
+    t!(insert_test_2:
+        apply_insert("aa bb", " cc", &Position::Index(2)) => "aa cc bb");
+    t!(insert_test_3:
+        apply_insert("aa bb", "cc ", &Position::Index(0)) => "cc aa bb");
+    t!(sanitize_test:
+        apply_sanitize("04 Three village scenes_ Lakodalom [BB 87_B]") => "04 Three village scenes Lakodalom BB 87 B");
+    t!(delete_test_1:
+        apply_delete("aa bb cc", 0, &Position::End) => "");
+    t!(delete_test_2:
+        apply_delete("aa bb cc", 0, &Position::Index(3)) => "bb cc");
+    t!(delete_test_3:
+        apply_delete("aa bb cc", 0, &Position::Index(42)) => "");
 }

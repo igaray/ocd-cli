@@ -29,24 +29,21 @@ clap = { version = "*", features = ["derive", "cargo"] }
 dateparser = "*"
 dialoguer = "*"
 glob = "*"
-kamadak-exif = "*"
 lalrpop-util = { version = "*", features = ["lexer"] }
 logos = "0.14.2"
 regex = "*"
 tracing = "*"
-unicode-segmentation = "*"
 walkdir = "*"
 rand = "*"
 
+# image processing
+kamadak-exif = "*"
+
 # string wrangling
-voca_rs = "*"
-case = "1.0.0"
-heck = "0.3.1"
-Inflector = "0.11.4"
-string_morph = "0.1.0"
+heck = "*"
+#unicode-segmentation = "*"
 
 # output
-# id3 = "0.3.0"
-indicatif = "*"
-console = "*"
-ratatui = "*"
+#indicatif = "*"
+#console = "*"
+#ratatui = "*"
