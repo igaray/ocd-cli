@@ -1,10 +1,11 @@
 //! Main OCD module.
-pub(crate) mod date;
+mod date;
 pub(crate) mod mrn;
-pub(crate) mod tests;
 pub(crate) mod tss;
 
 use crate::ocd::date::DateSource;
+use clap::Parser;
+use clap::Subcommand;
 use clap::ValueEnum;
 use dialoguer::Confirm;
 use dialoguer::Input;
@@ -20,16 +21,52 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// The command line interface configuration.
+#[derive(Debug, Parser)]
+#[clap(name = "ocd")]
+#[clap(author = "Iñaki Garay <igarai@gmail.com>")]
+#[clap(version = env!("VERSION_STR") )] // set in build.rs
+#[clap(about = "A swiss army knife of utilities to work with files.")]
+#[clap(long_about = None)]
+pub struct Cli {
+    #[clap(subcommand)]
+    pub command: OcdCommand,
+}
+
+/// All OCD commands.
+#[derive(Clone, Debug, Subcommand)]
+pub enum OcdCommand {
+    #[clap(about = "Mass Re-Name")]
+    #[clap(name = "mrn")]
+    MassRename(crate::ocd::mrn::MassRenameArgs),
+
+    #[clap(about = "Time Stamp Sort")]
+    #[clap(name = "tss")]
+    TimeStampSort(crate::ocd::tss::TimeStampSortArgs),
+
+    #[clap(about = "Fix ID3 tags")]
+    #[clap(name = "id3")]
+    FixID3 {},
+
+    #[clap(about = "Run the Elephant client")]
+    #[clap(name = "lphc")]
+    ElephantClient {},
+
+    #[clap(about = "Start the Elephant server")]
+    #[clap(name = "lphs")]
+    ElephantServer {},
+}
+
 /// File processing mode, filters only regular files, only directories, or both.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub(crate) enum Mode {
+enum Mode {
     All,
     Directories,
     Files,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub(crate) enum Verbosity {
+enum Verbosity {
     Silent,
     Low,
     Medium,
@@ -80,7 +117,7 @@ trait Speaker {
 /// the `Move` variant which is only used in the Time Stamp Sorted utility, it
 /// is inluded there.
 #[derive(Debug)]
-pub(crate) enum Action {
+enum Action {
     Move {
         date_source: Option<DateSource>,
         path: PathBuf,
@@ -103,7 +140,7 @@ impl Display for Action {
 /// created (to include deletion instructions in an undo file), whether or not
 /// git is to be used to perform actions on the filesystem, and string lengths
 /// for presentation.
-pub(crate) struct Plan {
+struct Plan {
     pub actions: BTreeMap<PathBuf, Action>,
     dirs: HashSet<PathBuf>,
     use_git: bool,
@@ -112,7 +149,7 @@ pub(crate) struct Plan {
 }
 
 impl Plan {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         Plan {
             dirs: HashSet::new(),
             actions: BTreeMap::new(),
@@ -122,12 +159,12 @@ impl Plan {
         }
     }
 
-    pub(crate) fn with_git(mut self, use_git: bool) -> Self {
+    fn with_git(mut self, use_git: bool) -> Self {
         self.use_git = use_git;
         self
     }
 
-    pub(crate) fn with_files(mut self, files: Vec<PathBuf>) -> Self {
+    fn with_files(mut self, files: Vec<PathBuf>) -> Self {
         for file in files {
             self.insert(file.clone(), Action::Rename { path: file.clone() });
         }
@@ -136,7 +173,7 @@ impl Plan {
 
     /// Removes all actions in plan which would result in the file being renamed
     /// into itself or moved into the current directory.
-    pub(crate) fn clean(&mut self) {
+    fn clean(&mut self) {
         // Retains only the elements specified by the predicate.
         // In other words, remove all pairs for which the predicate returns false.
         self.actions.retain(|src, action| match action {
@@ -145,7 +182,7 @@ impl Plan {
         })
     }
 
-    pub(crate) fn insert(&mut self, src: PathBuf, action: Action) {
+    fn insert(&mut self, src: PathBuf, action: Action) {
         let path = match action {
             Action::Move { ref path, .. } => {
                 // In the case of a move, the program will have created a
@@ -170,7 +207,7 @@ impl Plan {
         self.actions.insert(src, action);
     }
 
-    pub(crate) fn present_short(&self) {
+    fn present_short(&self) {
         let msl = self.max_src_len;
         let mdl = self.max_dst_len;
         for (src, action) in &self.actions {
@@ -189,7 +226,7 @@ impl Plan {
         }
     }
 
-    pub(crate) fn present_long(&self) {
+    fn present_long(&self) {
         println!("Result:");
         for (src, action) in &self.actions {
             match action {
@@ -208,7 +245,7 @@ impl Plan {
         }
     }
 
-    pub(crate) fn execute(&self) -> Result<(), Box<dyn Error>> {
+    fn execute(&self) -> Result<(), Box<dyn Error>> {
         for (src, action) in &self.actions {
             match action {
                 Action::Move { path, .. } => {
@@ -223,7 +260,7 @@ impl Plan {
         Ok(())
     }
 
-    pub(crate) fn create_undo(&self) -> io::Result<()> {
+    fn create_undo(&self) -> io::Result<()> {
         let git = if self.use_git { "git " } else { "" };
         let mut undo_file = std::fs::File::create("undo.sh")?;
         for (src, action) in &self.actions {

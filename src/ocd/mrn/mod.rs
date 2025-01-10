@@ -25,14 +25,14 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use walkdir::WalkDir;
 
-pub mod lalrpop;
-pub mod pattern_match;
-pub mod program;
+mod lalrpop;
+mod pattern_match;
+mod program;
 
 /// Arguments to the Mass Re-Name
 #[derive(Clone, Debug, Args)]
 #[command(args_conflicts_with_subcommands = true)]
-pub struct MassRenameArgs {
+pub(crate) struct MassRenameArgs {
     #[arg(action = clap::ArgAction::Count)]
     #[arg(help = r#"Sets the verbosity level.
 Default is low, one medium, two high, three or more debug."#)]
@@ -136,7 +136,7 @@ impl Speaker for MassRenameArgs {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub(crate) enum MassRenameParser {
+enum MassRenameParser {
     Handwritten,
     Lalrpop,
 }
@@ -440,7 +440,7 @@ fn apply_instruction(
     }
 }
 
-pub(crate) fn apply_sanitize(filename: &str) -> String {
+fn apply_sanitize(filename: &str) -> String {
     static ALPHANUMERIC_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"([a-zA-Z0-9])+").unwrap());
 
@@ -451,15 +451,15 @@ pub(crate) fn apply_sanitize(filename: &str) -> String {
     all.join(" ")
 }
 
-pub(crate) fn apply_lower_case(filename: &str) -> String {
+fn apply_lower_case(filename: &str) -> String {
     filename.to_lowercase()
 }
 
-pub(crate) fn apply_upper_case(filename: &str) -> String {
+fn apply_upper_case(filename: &str) -> String {
     filename.to_uppercase()
 }
 
-pub(crate) fn apply_title_case(filename: &str) -> String {
+fn apply_title_case(filename: &str) -> String {
     // Original
     // let mut titlecase_words = Vec::new();
     // for word in filename.split_whitespace() {
@@ -475,7 +475,7 @@ pub(crate) fn apply_title_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-pub(crate) fn apply_sentence_case(filename: &str) -> String {
+fn apply_sentence_case(filename: &str) -> String {
     // Original
     let words: Vec<&str> = filename.split_whitespace().collect();
     if let Some((first_word, remaining_words)) = words.split_first() {
@@ -512,35 +512,35 @@ fn titlecase_word(word: &str) -> String {
     titlecase_word
 }
 
-pub(crate) fn apply_join_camel_case(filename: &str) -> String {
+fn apply_join_camel_case(filename: &str) -> String {
     filename.to_upper_camel_case()
 }
 
-pub(crate) fn apply_join_snake_case(filename: &str) -> String {
+fn apply_join_snake_case(filename: &str) -> String {
     filename.to_snake_case()
 }
 
-pub(crate) fn apply_join_kebab_case(filename: &str) -> String {
+fn apply_join_kebab_case(filename: &str) -> String {
     filename.to_kebab_case()
 }
 
-pub(crate) fn apply_split_camel_case(filename: &str) -> String {
+fn apply_split_camel_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-pub(crate) fn apply_split_snake_case(filename: &str) -> String {
+fn apply_split_snake_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-pub(crate) fn apply_split_kebab_case(filename: &str) -> String {
+fn apply_split_kebab_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-pub(crate) fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
+fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
     filename.replace(pattern.as_str(), replace.as_str())
 }
 
-pub(crate) fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
+fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     let mut new = String::from(filename);
     match position {
         Position::End => new.push_str(text),
@@ -550,7 +550,7 @@ pub(crate) fn apply_insert(filename: &str, text: &str, position: &Position) -> S
     new
 }
 
-pub(crate) fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
+fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     // This was the previous implementation:
     // let mut filename2 = String::new();
     // let filename1: Vec<char> = filename.chars().collect();
@@ -584,7 +584,7 @@ pub(crate) fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> St
     s
 }
 
-pub(crate) fn apply_interactive_reorder(_filename: &str) -> String {
+fn apply_interactive_reorder(_filename: &str) -> String {
     // split filename into substrings
     // print each substring with its index below
     // read user input
@@ -592,4 +592,81 @@ pub(crate) fn apply_interactive_reorder(_filename: &str) -> String {
     // process input into a series of indices
     // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    macro_rules! test {
+        ($t:ident : $s1:expr => $s2:expr) => {
+            #[test]
+            fn $t() {
+                assert_eq!($s1, $s2)
+            }
+        };
+    }
+
+    test!(lower_case:
+        apply_lower_case("LoWeRcAsE") => "lowercase");
+    test!(upper_case_test:
+        apply_upper_case("UpPeRcAsE") => "UPPERCASE");
+    // test!(title_case_test_1:
+    //     apply_title_case("A tItLe HaS mUlTiPlE wOrDs") => "A Title Has Multiple Words");
+    test!(sentence_case_test_1:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    test!(sentence_case_test_2:
+        apply_sentence_case("a sentence has multiple words") => "A sentence has multiple words");
+    test!(sentence_case_test_3:
+        apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
+    test!(sentence_case_test_4:
+        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
+    test!(camel_case_join_test:
+        apply_join_camel_case("Camel case Join") => "CamelCaseJoin");
+    test!(camel_case_split_test_1:
+        apply_split_camel_case("CamelCase") => "Camel Case");
+    test!(camel_case_split_test_2:
+        apply_split_camel_case("CamelCaseSplit") => "Camel Case Split");
+    test!(camel_case_split_test_3:
+        apply_split_camel_case("XMLHttpRequest") => "Xml Http Request");
+    test!(insert_test_1:
+        apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
+    test!(insert_test_2:
+        apply_insert("aa bb", " cc", &Position::Index(2)) => "aa cc bb");
+    test!(insert_test_3:
+        apply_insert("aa bb", "cc ", &Position::Index(0)) => "cc aa bb");
+    test!(sanitize_test:
+        apply_sanitize("04 Three village scenes_ Lakodalom [BB 87_B]") => "04 Three village scenes Lakodalom BB 87 B");
+    test!(delete_test_1:
+        apply_delete("aa bb cc", 0, &Position::End) => "");
+    test!(delete_test_2:
+        apply_delete("aa bb cc", 0, &Position::Index(3)) => "bb cc");
+    test!(delete_test_3:
+        apply_delete("aa bb cc", 0, &Position::Index(42)) => "");
+    test!(replace_test:
+        apply_replace("aa bbccdd ee", &ReplaceArg::Text("cc".to_string()), &ReplaceArg::Text("ff".to_string())) => "aa bbffdd ee");
+    test!(replace_space_dash_test:
+        apply_replace("aa bb cc dd", &ReplaceArg::Space, &ReplaceArg::Dash) => "aa-bb-cc-dd");
+    test!(replace_space_period_test:
+        apply_replace("aa bb cc dd", &ReplaceArg::Space, &ReplaceArg::Period) => "aa.bb.cc.dd");
+    test!(replace_space_under_test:
+        apply_replace("aa bb cc dd", &ReplaceArg::Space, &ReplaceArg::Underscore) => "aa_bb_cc_dd");
+    test!(replace_dash_period_test:
+        apply_replace("aa-bb-cc-dd", &ReplaceArg::Dash, &ReplaceArg::Period) => "aa.bb.cc.dd");
+    test!(replace_dash_space_test:
+        apply_replace("aa-bb-cc-dd", &ReplaceArg::Dash, &ReplaceArg::Space) => "aa bb cc dd");
+    test!(replace_dash_under_test:
+        apply_replace("aa-bb-cc-dd", &ReplaceArg::Dash, &ReplaceArg::Underscore) => "aa_bb_cc_dd");
+    test!(replace_period_dash_test:
+        apply_replace("aa.bb.cc.dd", &ReplaceArg::Period, &ReplaceArg::Dash) => "aa-bb-cc-dd");
+    test!(replace_period_space_test:
+        apply_replace("aa.bb.cc.dd", &ReplaceArg::Period, &ReplaceArg::Space) => "aa bb cc dd");
+    test!(replace_period_under_test:
+        apply_replace("aa.bb.cc.dd", &ReplaceArg::Period, &ReplaceArg::Underscore) => "aa_bb_cc_dd");
+    test!(replace_under_dash_test:
+        apply_replace("aa_bb_cc_dd", &ReplaceArg::Underscore, &ReplaceArg::Dash) => "aa-bb-cc-dd");
+    test!(replace_under_period_test:
+        apply_replace("aa_bb_cc_dd", &ReplaceArg::Underscore, &ReplaceArg::Period) => "aa.bb.cc.dd");
+    test!(replace_under_space_test:
+        apply_replace("aa_bb_cc_dd", &ReplaceArg::Underscore, &ReplaceArg::Space) => "aa bb cc dd");
 }
