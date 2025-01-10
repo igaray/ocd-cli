@@ -3,7 +3,6 @@ use crate::ocd::mrn::program::ReplacePatternComponent;
 use crate::ocd::mrn::MassRenameArgs;
 use crate::ocd::mrn::Speaker;
 use crate::ocd::Verbosity;
-use lalrpop_util;
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
 use regex::Regex;
