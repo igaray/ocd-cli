@@ -1,6 +1,7 @@
 //! Mass Re-Name
 //!
-//! This command implements a small interpreter with a number of shortcuts to common filename manipulation actions.
+//! This command implements a small interpreter with a number of shortcuts to
+//! common filename manipulation actions.
 
 use crate::ocd::mrn::program::Instruction;
 use crate::ocd::mrn::program::Position;
@@ -24,7 +25,6 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use walkdir::WalkDir;
 
-pub mod handwritten;
 pub mod lalrpop;
 pub mod pattern_match;
 pub mod program;
@@ -35,7 +35,7 @@ pub mod program;
 pub struct MassRenameArgs {
     #[arg(action = clap::ArgAction::Count)]
     #[arg(help = r#"Sets the verbosity level.
-        Default is low, one medium, two high, three or more debug."#)]
+Default is low, one medium, two high, three or more debug."#)]
     #[arg(short = 'v')]
     verbosity: u8,
 
@@ -66,52 +66,59 @@ pub struct MassRenameArgs {
     #[arg(long)]
     git: bool,
 
-    #[arg(short = 'm')]
-    #[arg(long)]
     #[arg(default_value = "files")]
     #[arg(help = "Specified whether the rules are applied to directories, files or all.")]
+    #[arg(short = 'm')]
+    #[arg(long)]
     mode: Mode,
 
-    #[arg(
-        long,
-        default_value = "lalrpop",
-        help = "Specifies with parser to use."
-    )]
+    #[arg(default_value = "lalrpop")]
+    #[arg(help = "Specifies with parser to use.")]
+    #[arg(long)]
     parser: crate::ocd::mrn::MassRenameParser,
 
-    #[arg(short = 'r', long, help = "Recurse directories.")]
+    #[arg(help = "Recurse directories.")]
+    #[arg(long)]
+    #[arg(short = 'r')]
     recurse: bool,
 
     #[arg(help = r#"The rewrite rules to apply to filenames.
 The value is a comma-separated list of the following rules:
-lc                    Lower case
-uc                    Upper case
-tc                    Title case
-sc                    Sentence case
-ccj                   Camel case join
-ccs                   Camel case split
-i <text> <position>   Insert (<position> may be a positive integer or the keyword end)
-d <from> <to>         Delete (<from> may be a positive integer, <to> may be a positive integer or the keyword end)
-s                     Sanitize
-r <match> <text>      Replace (<match> and <text> are double-quote delimited strings)
-sd                    Substitute space dash
-sp                    Substitute space period
-su                    Substitute space underscore
-dp                    Substitute dash period
-ds                    Substitute dash space
-du                    Substitute dash underscore
-pd                    Substitute period dash
-ps                    Substitute period space
-pu                    Substitute period under
-ud                    Substitute underscore dash
-up                    Substitute underscore period
-us                    Substitute underscore space
-ea <extension>        Extension add
-er                    Extension remove
-p <match> <pattern>   Pattern match
-ip                    Interactive pattern match
-it                    Interactive tokenize
-    "#)]
+s                    Sanitize
+cl                   Lower case
+cu                   Upper case
+ct                   Title case
+cs                   Sentence case
+jc                   Join camel case
+jk                   Join kebab case
+js                   Join snaje case
+sc                   Split camel case
+sk                   Split kebab case
+ss                   Split snake case
+r <match> <text>     Replace <match> with <text>
+                     <match> and <text> are both single-quote delimited strings
+rdp                  Replace dashes with periods
+rds                  Replace dashes with spaces
+rdu                  Replace dashes with underscores
+rpd                  Replace periods with dashes
+rps                  Replace periods with spaces
+rpu                  Replace periods with underscores
+rsd                  Replace spaces with dashes
+rsp                  Replace spaces with periods
+rsu                  Replace spaces with underscores
+rud                  Replace underscores with dashes
+rup                  Replace underscores with periods
+rus                  Replace underscores with spaces
+i <pos> <text>       Insert <text> at <position>
+                     <text> is a single-quote delimited string
+                     <pos> may be a non-negative integer or the keyword 'end'
+d <index> <pos>      Delete from <index> to <position>
+                     <index> is a non-negative integer,
+                     <pos> may be a non-negative integer or the keyword 'end'
+ea <extension>       Change the extension, or add it if the file has none.
+er                   Remove the extension.
+o                    Interactive reorder, see documentation on use.
+p <match> <replace>  Pattern match, see documentation on use."#)]
     input: String,
 
     #[arg(
@@ -129,12 +136,12 @@ impl Speaker for MassRenameArgs {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum MassRenameParser {
+pub(crate) enum MassRenameParser {
     Handwritten,
     Lalrpop,
 }
 
-pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
+pub(crate) fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
     if config.verbosity() >= Verbosity::Silent {
         println!("Verbosity: {:?}", config.verbosity())
     }
@@ -173,10 +180,6 @@ pub fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
 }
 
 fn parse_with_handwritten(_config: &MassRenameArgs) -> Result<Program, Box<dyn Error + '_>> {
-    // let rules_raw = config.rules_raw.clone().unwrap();
-    // let rules = crate::ocd::mrn::handwritten::parser::parse(&config, &rules_raw);
-    // crate::ocd::output::mrn_state(config, &tokens, &rules, &files);
-    // rules
     todo!("Parsing with the handwritten parser is not implemented yet!")
 }
 
@@ -194,24 +197,27 @@ fn create_plan(config: &MassRenameArgs) -> Result<Plan, Box<dyn Error>> {
     Ok(Plan::new().with_git(config.git).with_files(files))
 }
 
+/// Navigating the files to operate on differs depending on the combination of options that filter entries, which are:
+/// - whether to recurse the directory tree or not
+/// - whether a glob filter must be applied or not
+/// - whether operations are to be applies to files, directories, or all
+///
+/// recurse | glob | mode | case
+/// --------|------|------|-----
+/// F       | none | f    | 1
+/// F       | none | d    | 2
+/// F       | none | a    | 3
+/// T       | none | f    | 4
+/// T       | none | d    | 5
+/// T       | none | a    | 6
+/// F       | some | f    | 7
+/// T       | some | f    | 7
+/// F       | some | d    | 8
+/// T       | some | d    | 8
+/// T       | some | a    | 9
+/// F       | some | a    | 9
 fn entries(config: &MassRenameArgs) -> Result<Vec<PathBuf>, Box<dyn Error>> {
-    /*
-    recurse | glob | mode
-    F       | none | f
-    F       | none | m
-    F       | none | b
-    F       | some | f
-    F       | some | m
-    F       | some | b
-    T       | none | f
-    T       | none | m
-    T       | none | b
-    T       | some | f
-    T       | some | m
-    T       | some | b
-    */
     let mut entries_vec: Vec<PathBuf> = Vec::new();
-
     match (config.recurse, &config.glob, &config.mode) {
         (false, None, Mode::Files) => match fs::read_dir(&config.dir) {
             Ok(iterator) => {
@@ -434,7 +440,7 @@ fn apply_instruction(
     }
 }
 
-fn apply_sanitize(filename: &str) -> String {
+pub(crate) fn apply_sanitize(filename: &str) -> String {
     static ALPHANUMERIC_REGEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"([a-zA-Z0-9])+").unwrap());
 
@@ -445,15 +451,15 @@ fn apply_sanitize(filename: &str) -> String {
     all.join(" ")
 }
 
-fn apply_lower_case(filename: &str) -> String {
+pub(crate) fn apply_lower_case(filename: &str) -> String {
     filename.to_lowercase()
 }
 
-fn apply_upper_case(filename: &str) -> String {
+pub(crate) fn apply_upper_case(filename: &str) -> String {
     filename.to_uppercase()
 }
 
-fn apply_title_case(filename: &str) -> String {
+pub(crate) fn apply_title_case(filename: &str) -> String {
     // Original
     // let mut titlecase_words = Vec::new();
     // for word in filename.split_whitespace() {
@@ -469,7 +475,7 @@ fn apply_title_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-fn apply_sentence_case(filename: &str) -> String {
+pub(crate) fn apply_sentence_case(filename: &str) -> String {
     // Original
     let words: Vec<&str> = filename.split_whitespace().collect();
     if let Some((first_word, remaining_words)) = words.split_first() {
@@ -506,35 +512,35 @@ fn titlecase_word(word: &str) -> String {
     titlecase_word
 }
 
-fn apply_join_camel_case(filename: &str) -> String {
+pub(crate) fn apply_join_camel_case(filename: &str) -> String {
     filename.to_upper_camel_case()
 }
 
-fn apply_join_snake_case(filename: &str) -> String {
+pub(crate) fn apply_join_snake_case(filename: &str) -> String {
     filename.to_snake_case()
 }
 
-fn apply_join_kebab_case(filename: &str) -> String {
+pub(crate) fn apply_join_kebab_case(filename: &str) -> String {
     filename.to_kebab_case()
 }
 
-fn apply_split_camel_case(filename: &str) -> String {
+pub(crate) fn apply_split_camel_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-fn apply_split_snake_case(filename: &str) -> String {
+pub(crate) fn apply_split_snake_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-fn apply_split_kebab_case(filename: &str) -> String {
+pub(crate) fn apply_split_kebab_case(filename: &str) -> String {
     filename.to_title_case()
 }
 
-fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
+pub(crate) fn apply_replace(filename: &str, pattern: &ReplaceArg, replace: &ReplaceArg) -> String {
     filename.replace(pattern.as_str(), replace.as_str())
 }
 
-fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
+pub(crate) fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     let mut new = String::from(filename);
     match position {
         Position::End => new.push_str(text),
@@ -544,7 +550,7 @@ fn apply_insert(filename: &str, text: &str, position: &Position) -> String {
     new
 }
 
-fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
+pub(crate) fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     // This was the previous implementation:
     // let mut filename2 = String::new();
     // let filename1: Vec<char> = filename.chars().collect();
@@ -578,7 +584,7 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     s
 }
 
-fn apply_interactive_reorder(_filename: &str) -> String {
+pub(crate) fn apply_interactive_reorder(_filename: &str) -> String {
     // split filename into substrings
     // print each substring with its index below
     // read user input
@@ -586,115 +592,4 @@ fn apply_interactive_reorder(_filename: &str) -> String {
     // process input into a series of indices
     // generate new string
     todo!("Interactive reorder instruction not implemented yet!")
-}
-
-#[cfg(test)]
-mod test {
-    // use crate::ocd::mrn::apply_camel_case_join;
-    // use crate::ocd::mrn::apply_camel_case_split;
-    use crate::ocd::mrn::apply_delete;
-    use crate::ocd::mrn::apply_insert;
-    use crate::ocd::mrn::apply_join_camel_case;
-    use crate::ocd::mrn::apply_lower_case;
-    use crate::ocd::mrn::apply_replace;
-    use crate::ocd::mrn::apply_sanitize;
-    use crate::ocd::mrn::apply_sentence_case;
-    use crate::ocd::mrn::apply_split_camel_case;
-    use crate::ocd::mrn::apply_title_case;
-    use crate::ocd::mrn::apply_upper_case;
-    // use crate::ocd::mrn::pattern_match;
-    use crate::ocd::mrn::Position;
-
-    macro_rules! t {
-        ($t:ident : $s1:expr => $s2:expr) => {
-            #[test]
-            fn $t() {
-                assert_eq!($s1, $s2)
-            }
-        };
-    }
-
-    // t!(test3: "MixedUP CamelCase, with some Spaces" => "Mixed Up Camel Case With Some Spaces");
-    // t!(test4: "mixed_up_ snake_case, with some _spaces" => "Mixed Up Snake Case With Some Spaces");
-    // t!(test5: "kebab-case" => "Kebab Case");
-    // t!(test6: "SHOUTY_SNAKE_CASE" => "Shouty Snake Case");
-    // t!(test7: "snake_case" => "Snake Case");
-    // t!(test8: "this-contains_ ALLKinds OfWord_Boundaries" => "This Contains All Kinds Of Word Boundaries");
-
-    t!(lower_case_test:
-        apply_lower_case("LoWeRcAsE") => "lowercase");
-    t!(upper_case_test:
-        apply_upper_case("UpPeRcAsE") => "UPPERCASE");
-    // t!(title_case_test_1:
-    //     apply_title_case("A tItLe HaS mUlTiPlE wOrDs") => "A Title Has Multiple Words");
-    // t!(title_case_test_2:
-    //     apply_title_case("XΣXΣ baﬄe") => "Xσxσ Baﬄe");
-    t!(sentence_case_test_1:
-        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
-    t!(sentence_case_test_2:
-        apply_sentence_case("a sentence has multiple words") => "A sentence has multiple words");
-    t!(sentence_case_test_3:
-        apply_sentence_case("A SENTENCE HAS MULTIPLE WORDS") => "A sentence has multiple words");
-    t!(sentence_case_test_4:
-        apply_sentence_case("A sEnTeNcE HaS mUlTiPlE wOrDs") => "A sentence has multiple words");
-    t!(camel_case_join_test:
-        apply_join_camel_case("Camel case Join") => "CamelCaseJoin");
-    t!(camel_case_split_test_1:
-        apply_split_camel_case("CamelCase") => "Camel Case");
-    t!(camel_case_split_test_2:
-        apply_split_camel_case("CamelCaseSplit") => "Camel Case Split");
-    t!(camel_case_split_test_3:
-        apply_split_camel_case("XMLHttpRequest") => "Xml Http Request");
-    // t!(replace_test:
-    //     apply_replace("aa bbccdd ee", "cc", "ff") => "aa bbffdd ee");
-    // t!(replace_space_dash_test:
-    //     apply_replace("aa bb cc dd", " ", "-") => "aa-bb-cc-dd");
-    // t!(replace_space_period_test:
-    //     apply_replace("aa bb cc dd", " ", ".") => "aa.bb.cc.dd");
-    // t!(replace_space_under_test:
-    //     apply_replace("aa bb cc dd", " ", "_") => "aa_bb_cc_dd");
-    // t!(replace_dash_period_test:
-    //     apply_replace("aa-bb-cc-dd", "-", ".") => "aa.bb.cc.dd");
-    // t!(replace_dash_space_test:
-    //     apply_replace("aa-bb-cc-dd", "-", " ") => "aa bb cc dd");
-    // t!(replace_dash_under_test:
-    //     apply_replace("aa-bb-cc-dd", "-", "_") => "aa_bb_cc_dd");
-    // t!(replace_period_dash_test:
-    //     apply_replace("aa.bb.cc.dd", ".", "-") => "aa-bb-cc-dd");
-    // t!(replace_period_space_test:
-    //     apply_replace("aa.bb.cc.dd", ".", " ") => "aa bb cc dd");
-    // t!(replace_period_under_test:
-    //     apply_replace("aa.bb.cc.dd", ".", "_") => "aa_bb_cc_dd");
-    // t!(replace_under_dash_test:
-    //     apply_replace("aa_bb_cc_dd", "_", "-") => "aa-bb-cc-dd");
-    // t!(replace_under_period_test:
-    //     apply_replace("aa_bb_cc_dd", "_", ".") => "aa.bb.cc.dd");
-    // t!(replace_under_space_test:
-    //     apply_replace("aa_bb_cc_dd", "_", " ") => "aa bb cc dd");
-    // t!(pattern_match_test_1:
-    //     pattern_match::apply(0, "aa bb", "{X} {X}", "{2} {1}") => "bb aa");
-    // t!(pattern_match_test_2:
-    //     pattern_match::apply(0, "Dave Brubeck - 01. Take five", "{X} - {N}. {X}", "{1} {2} {3}") => "Dave Brubeck 01 Take five");
-    // t!(pattern_match_test_3:
-    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{1} {2}") => "Bahia Blanca 2019-10-21");
-    // t!(pattern_match_test_4:
-    //     pattern_match::apply(0, "Foo 123 B_a_r", "{A} {N} {X}", "{3} {2} {1}") => "B_a_r 123 Foo");
-    // t!(pattern_match_test_5:
-    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019", "{X}, {D}", "{2} {1}") => "2019-10-21 Bahia Blanca");
-    // t!(pattern_match_test_6:
-    //     pattern_match::apply(0, "Bahia Blanca, 21 October 2019, FooBarBaz", "{X}, {D}, {X}", "{2} {1} {3}") => "2019-10-21 Bahia Blanca FooBarBaz");
-    t!(insert_test_1:
-        apply_insert("aa bb", " cc", &Position::End) => "aa bb cc");
-    t!(insert_test_2:
-        apply_insert("aa bb", " cc", &Position::Index(2)) => "aa cc bb");
-    t!(insert_test_3:
-        apply_insert("aa bb", "cc ", &Position::Index(0)) => "cc aa bb");
-    t!(sanitize_test:
-        apply_sanitize("04 Three village scenes_ Lakodalom [BB 87_B]") => "04 Three village scenes Lakodalom BB 87 B");
-    t!(delete_test_1:
-        apply_delete("aa bb cc", 0, &Position::End) => "");
-    t!(delete_test_2:
-        apply_delete("aa bb cc", 0, &Position::Index(3)) => "bb cc");
-    t!(delete_test_3:
-        apply_delete("aa bb cc", 0, &Position::Index(42)) => "");
 }

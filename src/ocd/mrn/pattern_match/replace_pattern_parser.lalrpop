@@ -40,7 +40,6 @@ RPC: ReplacePatternComponent = {
     "dash" => ReplacePatternComponent::Literal(String::from("-")),
     "obrace" => ReplacePatternComponent::Literal(String::from("{")),
     "cbrace" => ReplacePatternComponent::Literal(String::from("}")),
-    "date" => ReplacePatternComponent::DateGenerator,
     "sng" <sng:SNG> => sng,
     "rng" <rng:RNG> => rng,
     <t:"florb"> => ReplacePatternComponent::Florb(t),

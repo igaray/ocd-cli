@@ -10,8 +10,9 @@ impl Program {
     }
 
     pub fn instructions(&self) -> &Vec<Instruction> {
-        return &self.0;
+        &self.0
     }
+
     pub fn check(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
@@ -87,7 +88,6 @@ pub struct ReplacePattern {
 pub enum ReplacePatternComponent {
     Literal(String),
     Florb(usize),
-    DateGenerator,
     RandomNumberGenerator {
         start: usize,
         end: usize,

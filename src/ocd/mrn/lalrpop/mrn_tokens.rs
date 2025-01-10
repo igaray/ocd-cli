@@ -2,6 +2,7 @@ use logos::Logos;
 use std::fmt;
 use std::num::ParseIntError;
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),

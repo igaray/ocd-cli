@@ -2,16 +2,15 @@
 //!
 //! This command sorts image files into folders named after a date extracted from the image.
 
+use crate::ocd::date::exif_date;
+use crate::ocd::date::filename_date;
+use crate::ocd::date::metadata_date;
 use crate::ocd::date::DateSource;
 use crate::ocd::Action;
 use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
-use chrono::NaiveDateTime;
 use clap::Args;
-use exif::In;
-use exif::Tag;
-use exif::Value;
 use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
@@ -181,165 +180,27 @@ fn maybe_insert(config: &TimeStampSortArgs, plan: &mut Plan, entry: DirEntry) {
     let entry_path = entry.into_path();
     if entry_path.is_file() && !crate::ocd::is_hidden(&entry_path) && is_image(&entry_path) {
         if let Some((source, path)) = destination(config, &entry_path) {
-            plan.insert(
-                entry_path,
-                Action::Move {
-                    date_source: Some(source),
-                    path,
-                },
-            );
+            let action = Action::Move {
+                date_source: Some(source),
+                path,
+            };
+            plan.insert(entry_path, action);
         }
     }
 }
 
 /// This function tries to determine a destination for a given file.
-/// It first tries to find a date in the file name, by matching it against a regex.
-/// If that fails, it tries to examine the EXIF data to find a datetime field.
-/// If that fails, it tries to figure out a data from the filesystem metadata,
-/// by looking at the created date field. If however the creation date is today,
-/// it is discarded as we can assume that the original creation date has been lost.
+/// - It first tries to find a date in the file name, by matching it against a regex.
+/// - If that fails, it tries to examine the EXIF data to find a datetime field.
+/// - If that fails, it tries to figure out a data from the filesystem metadata,
+///   by looking at the created date field. If however the creation date is today,
+///   it is discarded as we can assume that the original creation date has been lost.
 fn destination(config: &TimeStampSortArgs, path: &PathBuf) -> Option<(DateSource, PathBuf)> {
-    if let Some(dst) = filename_date(&config.dir, path) {
-        Some((DateSource::Filename, dst))
-    } else {
-        if config.verbosity() > Verbosity::Low {
-            println!(
-                "File {:?} does not seem to contain a timestamp in its name.",
-                path
-            )
-        };
-        if let Some(dst) = exif_date(config, path) {
-            Some((DateSource::Exif, dst))
-        } else {
-            if config.verbosity() > Verbosity::Low {
-                println!(
-                    "No creation timestamp found in EXIF data. Looking in filesystem metadata."
-                )
-            };
-            metadata_date(config, path).map(|dst| (DateSource::Filesystem, dst))
-        }
-    }
-}
-
-/// Given a filename, extracts a date by matching against a regex.
-fn filename_date(base_dir: &Path, file_name: &Path) -> Option<PathBuf> {
-    file_name
-        .to_str()
-        .and_then(crate::ocd::date::regex_date)
-        .map(|(year, month, day)| base_dir.join(format!("{year}-{month}-{day}")))
-}
-
-/// Attempts to extract the creation data from the EXIF data in an image file.
-/// In order, this function tries to:
-/// - open the file
-/// - read the exif data
-/// - get the `DateTimeOriginal` field
-/// - parse the result with `NaiveDateTime::parse_from_str` as a date with format `%Y:%m:%d %T`
-/// - parse the result with `dateparser::parse` as a date with format `"%Y-%m-%d`
-fn exif_date(_config: &TimeStampSortArgs, path: &PathBuf) -> Option<PathBuf> {
-    std::fs::File::open(path).ok().and_then(|file| {
-        let mut bufreader = std::io::BufReader::new(&file);
-        exif::Reader::new()
-            .read_from_container(&mut bufreader)
-            .ok()
-            .and_then(|exif| {
-                exif.get_field(Tag::DateTimeOriginal, In::PRIMARY)
-                    .and_then(|datetimeoriginal| {
-                        if let Value::Ascii(text) = &datetimeoriginal.value {
-                            let text = String::from_utf8(text[0].clone()).unwrap();
-                            let parsed_result = NaiveDateTime::parse_from_str(&text, "%Y:%m:%d %T");
-                            match parsed_result {
-                                Ok(parsed) => {
-                                    let date = parsed.format("%Y-%m-%d").to_string();
-                                    let mut path = PathBuf::new();
-                                    path.push("./");
-                                    path.push(date);
-                                    Some(path)
-                                }
-                                Err(_) => dateparser::parse(&text).ok().map(|parsed| {
-                                    let date = parsed.date_naive().format("%Y-%m-%d").to_string();
-                                    let mut path = PathBuf::new();
-                                    path.push("./");
-                                    path.push(date);
-                                    path
-                                }),
-                            }
-                        } else {
-                            None
-                        }
-                    })
-            })
-    })
-}
-
-/// Attempts to extract the date from the filesystem metadata.
-/// In order, this function tries to:
-/// - obtain the file metadata
-/// - get the `created` field
-/// - check whether the created is the same as the current date
-fn metadata_date(config: &TimeStampSortArgs, path: &PathBuf) -> Option<PathBuf> {
-    std::fs::metadata(path).ok().and_then(|metadata| {
-        metadata.created().ok().and_then(|system_time| {
-            let today: chrono::DateTime<chrono::offset::Local> = chrono::Local::now();
-            let creation_date: chrono::DateTime<chrono::offset::Local> =
-                chrono::DateTime::from(system_time);
-            let date = creation_date.date_naive().format("%Y-%m-%d").to_string();
-            if creation_date != today {
-                if config.verbosity() > Verbosity::Low {
-                    println!("Found creation time in filesystem metadata: {:?}", date)
-                };
-                let mut path = PathBuf::new();
-                path.push("./");
-                path.push(date);
-                Some(path)
-            } else {
-                if config.verbosity() > Verbosity::Low {
-                    println!(
-                        "The creation date for {:?} is today, discarding this date",
-                        path
-                    )
-                };
-                None
-            }
+    filename_date(path)
+        .or_else(|| exif_date(path))
+        .or_else(|| metadata_date(path))
+        .map(|(source, year, month, day)| {
+            let pathbuf = config.dir.join(format!("{year}-{month}-{day}"));
+            (source, pathbuf)
         })
-    })
-}
-
-#[cfg(test)]
-mod test {
-
-    use std::path::Path;
-    use std::path::PathBuf;
-
-    // #[test]
-    // fn maybe_insert() {
-    //     todo!();
-    // }
-
-    #[test]
-    fn filename_date1() {
-        let base_dir = Path::new("./base_dir");
-        let file_name = Path::new("An image file from 2024-12-31.jpg");
-        let expected = Some(PathBuf::from("./base_dir/2024-12-31"));
-        let result = super::filename_date(base_dir, file_name);
-        assert_eq!(expected, result);
-    }
-
-    #[test]
-    fn filename_date2() {
-        let base_dir = Path::new("./base_dir");
-        let file_name = Path::new("An image file from 20241231.jpg");
-        let expected = Some(PathBuf::from("./base_dir/2024-12-31"));
-        let result = super::filename_date(base_dir, file_name);
-        assert_eq!(expected, result);
-    }
-
-    #[test]
-    fn filename_date3() {
-        let base_dir = Path::new("./base_dir");
-        let file_name = Path::new("An image file from 2024-12-01 to 2024-12-31.jpg");
-        let expected = Some(PathBuf::from("./base_dir/2024-12-01"));
-        let result = super::filename_date(base_dir, file_name);
-        assert_eq!(expected, result);
-    }
 }

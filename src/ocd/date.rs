@@ -1,87 +1,157 @@
+use chrono::Datelike;
+use chrono::NaiveDateTime;
+use exif::In;
+use exif::Tag;
+use exif::Value;
 use regex::Regex;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
-#[derive(Debug)]
+// The default date regex string.
+pub const DATE_FLORB_REGEX_STR: &str = r"(?<date>[0-9];{4}.?[0-9]{2}.?[0-9]{2}|(?:(?:\d{1,2})\s(?i)(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december)\s(?:\d{1,4})))";
+pub static DATE_FLORB_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(DEFAULT_DATEFINDER_REGEX_STR).unwrap());
+// pub const DEFAULT_DATE_REGEX_STR: &str = r"(?<a>(?<y1>1\d\d\d|20\d\d).?(?<m1>0[1-9]|1[012]).?(?<d1>0[1-9]|[12]\d|30|31))|(?i)(?<b>(?<d2>\d{1,2})\s(?<m2>jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december)\s(?<y2>\d{1,4}))";
+
+/// The default datefinder reges string is the same as the default date regex but includes non-alphanumeric catch-all patterns before and after.
+/// Case A: a date in the format YYYY?MM?DD or YYYYMMDD
+/// `(?<a>(?<y1>1\d\d\d|20\d\d).?(?<m1>0[1-9]|1[012]).?(?<d1>0[1-9]|[12]\d|30|31))`
+/// Case B: case insensitive, DD MONTH YYYY
+/// where MONTH may be the full month name or the three letter short version.
+/// `(?i)(?<b>(?<d2>\d{1,2})\s(?<m2>jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december)\s(?<y2>\d{1,4}))`
+pub const DEFAULT_DATEFINDER_REGEX_STR: &str = r"\D*(?<a>(?<y1>1\d\d\d|20\d\d).?(?<m1>0[1-9]|1[012]).?(?<d1>0[1-9]|[12]\d|30|31))|(?i)(?<b>(?<d2>\d{1,2})\s(?<m2>jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december)\s(?<y2>\d{1,4}))\D*";
+pub static DEFAULT_DATEFINDER_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(DEFAULT_DATEFINDER_REGEX_STR).unwrap());
+
+#[derive(Debug, Default)]
+pub enum DateFlorbRegex {
+    #[default]
+    Default,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum DateSource {
     Filename,
     Exif,
     Filesystem,
 }
 
-// pub fn parse_date() {}
-
-/// Given a string, tries to find a date in the format YYYY?MM?DD or YYYYMMDD,
-/// where YYYY in [1000-2999], MM in [01-12], DD in [01-31]
-pub fn regex_date(filename: &str) -> Option<(&str, &str, &str)> {
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\D*(1\d\d\d|20\d\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*").unwrap()
-    });
-    RE.captures(filename).map(|captures| {
-        let year = captures.get(1).unwrap().as_str();
-        let month = captures.get(2).unwrap().as_str();
-        let day = captures.get(3).unwrap().as_str();
-        (year, month, day)
+pub fn regex_date(haystack: &str) -> Option<(u32, u32, u32)> {
+    DEFAULT_DATEFINDER_REGEX.captures(haystack).map(|capture| {
+        if capture.name("a").is_some() {
+            let year = capture.get(2).unwrap().as_str().parse::<u32>().unwrap();
+            let month = capture.get(3).unwrap().as_str().parse::<u32>().unwrap();
+            let day = capture.get(4).unwrap().as_str().parse::<u32>().unwrap();
+            (year, month, day)
+        } else if capture.name("b").is_some() {
+            let year = capture.get(8).unwrap().as_str().parse::<u32>().unwrap();
+            let month = capture.get(7).unwrap().as_str();
+            let month = english_month_to_number(month);
+            let day = capture.get(6).unwrap().as_str().parse::<u32>().unwrap();
+            (year, month, day)
+        } else {
+            // This branch is unreachable because if there are no captures,
+            // `map` will pass the `None` value directly. If the value was `Some`
+            // and the map closure was applied, there was a capture and either
+            // `a` or `b` will match.
+            unreachable!()
+        }
     })
 }
 
-pub const DATE_REGEX: &str = r"((?:\d{1,2})\s(?i:January|February|March|April|May|June|July|August|September|October|November|December)\s(?:\d{1,4}))";
-pub const IOS_DATE_REGEX: &str = r"(?i)(?P<d>\d{1,2})\s(?P<m>January|February|March|April|May|June|July|August|September|October|November|December)\s(?P<y>\d{1,4})";
-
-pub fn try_ios_date_format_recognition(date_text: &str) -> Option<String> {
-    // This regex recognizes human-readable dates and its subparts
-    static IOS_DATE_FORMAT_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(IOS_DATE_REGEX).unwrap());
-
-    match IOS_DATE_FORMAT_REGEX.captures(date_text) {
-        None => None,
-        Some(date_capture) => {
-            let day_text = format!(
-                "{:02}",
-                date_capture
-                    .name("d")
-                    .unwrap()
-                    .as_str()
-                    .parse::<u32>()
-                    .unwrap()
-            );
-            let month_text = english_month_to_number(date_capture.name("m").unwrap().as_str());
-            let year_text = format!(
-                "{:02}",
-                date_capture
-                    .name("y")
-                    .unwrap()
-                    .as_str()
-                    .parse::<u32>()
-                    .unwrap()
-            );
-            let mut content = String::new();
-            content.push_str(&year_text);
-            content.push('-');
-            content.push_str(&month_text);
-            content.push('-');
-            content.push_str(&day_text);
-            Some(content)
+fn english_month_to_number(month: &str) -> u32 {
+    match month.to_lowercase().as_str() {
+        "jan" | "january" => 1,
+        "feb" | "february" => 2,
+        "mar" | "march" => 3,
+        "apr" | "april" => 4,
+        "may" => 5,
+        "jun" | "june" => 6,
+        "jul" | "july" => 7,
+        "aug" | "august" => 8,
+        "sep" | "september" => 9,
+        "oct" | "october" => 10,
+        "nov" | "november" => 11,
+        "dec" | "december" => 12,
+        unexpected => {
+            panic!("Unknown month value! {}", unexpected);
         }
     }
 }
 
-fn english_month_to_number(month: &str) -> String {
-    let month = match month {
-        "jan" | "Jan" | "january" | "January" => "01",
-        "feb" | "Feb" | "february" | "February" => "02",
-        "mar" | "Mar" | "march" | "March" => "03",
-        "apr" | "Apr" | "april" | "April" => "04",
-        "may" | "May" => "05",
-        "jun" | "Jun" | "june" | "June" => "06",
-        "jul" | "Jul" | "july" | "July" => "07",
-        "aug" | "Aug" | "august" | "August" => "08",
-        "sep" | "Sep" | "september" | "September" => "09",
-        "oct" | "Oct" | "october" | "October" => "10",
-        "nov" | "Nov" | "november" | "November" => "11",
-        "dec" | "Dec" | "december" | "December" => "12",
-        unexpected => {
-            panic!("Unknown month value! {}", unexpected);
-        }
-    };
-    String::from(month)
+/// Given a filename, extracts a date by matching against a regex.
+pub fn filename_date(file_name: &Path) -> Option<(DateSource, u32, u32, u32)> {
+    file_name
+        .to_str()
+        .and_then(crate::ocd::date::regex_date)
+        .map(|(year, month, day)| (DateSource::Filename, year, month, day))
+}
+
+/// Attempts to extract the creation data from the EXIF data in an image file.
+/// In order, this function tries to:
+/// - open the file
+/// - read the exif data
+/// - get the `DateTimeOriginal` field
+/// - parse the result with `NaiveDateTime::parse_from_str` as a date with format `%Y:%m:%d %H:%M:%S`.
+///   This format is specified in the [CIPA EXIF standard document](https://www.cipa.jp/std/documents/download_e.html?DC-008-Translation-2023-E) for the DateTimeOriginal tag.
+/// - if for some reason the exif tag is not in the right format and
+///   `chrono::NaiveDateTime::parse_from_str` cannot parse it, parse the result
+///   with `dateparser::parse` as a date with format `"%Y-%m-%d`.
+pub fn exif_date(path: &PathBuf) -> Option<(DateSource, u32, u32, u32)> {
+    std::fs::File::open(path).ok().and_then(|file| {
+        let mut bufreader = std::io::BufReader::new(&file);
+        exif::Reader::new()
+            .read_from_container(&mut bufreader)
+            .ok()
+            .and_then(|exif| {
+                exif.get_field(Tag::DateTimeOriginal, In::PRIMARY)
+                    .and_then(|datetimeoriginal| {
+                        if let Value::Ascii(text) = &datetimeoriginal.value {
+                            let text = String::from_utf8(text[0].clone()).unwrap();
+                            let parsed_result =
+                                NaiveDateTime::parse_from_str(&text, "%Y:%m:%d %H:%M:%S");
+                            match parsed_result {
+                                Ok(parsed) => {
+                                    let year = parsed.year() as u32;
+                                    let month = parsed.month();
+                                    let day = parsed.day();
+                                    Some((DateSource::Exif, year, month, day))
+                                }
+                                Err(_) => dateparser::parse(&text).ok().map(|parsed| {
+                                    let year = parsed.year() as u32;
+                                    let month = parsed.month();
+                                    let day = parsed.day();
+                                    (DateSource::Exif, year, month, day)
+                                }),
+                            }
+                        } else {
+                            None
+                        }
+                    })
+            })
+    })
+}
+
+/// Attempts to extract the date from the filesystem metadata.
+/// In order, this function tries to:
+/// - obtain the file metadata
+/// - get the `created` field
+/// - check whether the created is the same as the current date
+pub fn metadata_date(path: &PathBuf) -> Option<(DateSource, u32, u32, u32)> {
+    std::fs::metadata(path).ok().and_then(|metadata| {
+        metadata.created().ok().and_then(|system_time| {
+            let today: chrono::DateTime<chrono::offset::Local> = chrono::Local::now();
+            let creation_date: chrono::DateTime<chrono::offset::Local> =
+                chrono::DateTime::from(system_time);
+            if creation_date != today {
+                let year = creation_date.year() as u32;
+                let month = creation_date.month();
+                let day = creation_date.day();
+                Some((DateSource::Filesystem, year, month, day))
+            } else {
+                None
+            }
+        })
+    })
 }

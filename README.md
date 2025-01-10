@@ -1,684 +1,161 @@
 # OCD
-
-TODO:
-- big: pattern match, logging, tui, id3, elephant
-- MAINTENANCE
-  - [ ] document (bring back old documentation and update) https://github.com/igaray/ocd-cli/issues/27
-  - [ ] update the documentation to reflect the new grammar, both in README and also clap
-  - [ ] mrn grammar mermaid diagram?
-  - [ ] use tracing for logging https://github.com/igaray/ocd-cli/issues/36
-  - [ ] use https://github.com/baoyachi/shadow-rs to remove build time hacks for version string
-  - [ ] setup coverage https://github.com/igaray/ocd-cli/issues/42
-  - [ ] improve error handling https://github.com/igaray/ocd-cli/issues/30
-  - [ ] newtype the filename buffer https://github.com/igaray/ocd-cli/issues/42
-  - TSS
-    - [ ] add tests to tss https://github.com/igaray/ocd-cli/issues/25
-  - MRN::LALRPOP
-    - [ ] fix mrn tests for replace and pattern match
-    - [ ] move thread rng from pattern_match module to config
-    - [ ] move lalrpop tests to main mrn module and make parser-implementation agnostic, and use test cases to test the different parsers.
-    - [ ] add failure tests to lalrpop parser
-    - [ ] refactor case commands https://github.com/igaray/ocd-cli/issues/32
-    - [ ] refactor replace https://github.com/igaray/ocd-cli/issues/38
-    - [ ] study the possibility of using a single lexer&parser
-  - MRN::HANDWRITTEN
-    - [ ] update handwritten lexer & parser
-      - [ ] add failure tests to handwritten lexer https://github.com/igaray/ocd-cli/issues/20
-        - [ ] add failure tests to handwritten parser https://github.com/igaray/ocd-cli/issues/21
-- TSS
-  - [x] tss enhancements https://github.com/igaray/ocd-cli/issues/35
-        if date regex cant extract a data, try with exif data
-  - [x] show the date source (filename, exif, fs metadata) in the plan
-  - [ ] add an option to tss to select/restrict data source
-        this is to allow controlling how the destination function works,
-        mostly to disallow filesystem metadata
-  - [ ] add an option to allow the user to specify which extensions are considered image files.
-- MRN
-  - LALRPOP
-    - [ ] finish moving all post processing steps over to the parser
-      - finish replace pattern parser prototype
-        - [x] finish sng gramar rules
-        - [x] rng parser tests
-        - [x] finish sng lexer tests
-        - [x] sng parser tests
-        - [x] date generator patterns, lexer+parser+tests
-        - [x] move everything over to ocd
-        - [ ] implement apply
-          - [x] match pattern processing, extracts matches
-          - [x] match the match extracts to florb indexes
-          - [x] rng, sng
-          - [ ] {D} florb, DRY WRT TSS
-            - [ ] update date parser to understand IPhotos-style folder moment names
-            - [ ] move the date parsing code in ocd::tss:exif_date over to ocd::date
-            - [ ] allow user to pass in arbitrary strftime format strings to pattern match data generator florb
-  - implement missing instructions
-    - [ ] finish pattern match implementation https://github.com/igaray/ocd-cli/issues/15
-    - [x] camel case join https://github.com/igaray/ocd-cli/issues/5
-    - [x] snake case join https://github.com/igaray/ocd-cli/issues/9
-    - [x] kebab case join https://github.com/igaray/ocd-cli/issues/7
-    - [x] camel case split https://github.com/igaray/ocd-cli/issues/6
-    - [x] snake case split https://github.com/igaray/ocd-cli/issues/10
-    - [x] kebab case split https://github.com/igaray/ocd-cli/issues/8
-    - [x] sanitize https://github.com/igaray/ocd-cli/issues/14
-    - [ ] interactive reorder https://github.com/igaray/ocd-cli/issues/16
-  - [ ] add {sha} generator to get the filename sha
-  - [ ] implement range checks
-  - [ ] remove interactive pattern match https://github.com/igaray/ocd-cli/issues/17
-  - [ ] improve ea https://github.com/igaray/ocd-cli/issues/37
-  - [ ] bug: improve insert error message https://github.com/igaray/ocd-cli/issues/19
-  - [ ] bug: fix multiple periods in filename https://github.com/igaray/ocd-cli/issues/33
-  - [ ] rethink the case join/split instructions, maybe just have to_{camel,snake,kebab}
-  - HANDWRITTEN
-  - CHUMSKY
-  - TREESITTER
-- User interface
-  - [ ] progress bar while renaming https://github.com/igaray/ocd-cli/issues/29
-  - [ ] table output https://github.com/igaray/ocd-cli/issues/28
-  - [ ] review output wrt verbosity levels https://github.com/igaray/ocd-cli/issues/31
-  - [ ] Do something with the output of the external git command when using git to rename files.
-  - [ ] add interactive mode with RATATUI
-    - mrn program input field
-    - interactive preview of buffer modification
-    - [ ] decouple the engine from the ui, use a channel to inform events and allow ui to decide on presentation.
-    - [ ] implement a tracing subscriber that captures logs when in tui mode and prints them in a separate tab
-- ID3 fixer
-- Elephant Mode
-  - [ ] configuration file
-  - [ ] sqlite database for known files
-  - [ ] system notifications on new file detection on osx and linux
-
-| old | new | notes                     |
-|-----|-----|---------------------------|
-| s   | s   | sanitize                  |
-| lc  | cl  | case lower                |
-| uc  | cu  | case upper                |
-| tc  | ct  | case title                |
-| sc  | cs  | case sentence             |
-| ccj | jc  | join camelcase            |
-|     | js  | join snake                |
-|     | jk  | join kebab                |
-| ccs | sc  | split camel               |
-|     | ss  | split camel               |
-|     | sk  | split kebab               |
-| r   | r   | replace                   |
-| dp  | rdp |                           |
-| ds  | rds |                           |
-| du  | rdu |                           |
-| pd  | rpd |                           |
-| ps  | rps |                           |
-| pu  | rpu |                           |
-| sd  | rsd |                           |
-| sp  | rsp |                           |
-| su  | rsu |                           |
-| ud  | rud |                           |
-| up  | rup |                           |
-| us  | rus |                           |
-| i   | i   | insert                    |
-| d   | d   | delete                    |
-| ea  | ea  | extension add             |
-| er  | er  | extension remove          |
-| p   | p   | interactive pattern match |
-|     | o   | interactive re order      |
-
----
-
 A CLI file management swiss army knife.
 
 **ocd** is a quirky collection of simple command-line tools for manipulating
-files, their names, and paths.
-
-It currently has two subcommands: a mass renamer and a file sorter.
-
-### License and Credits
-
-### Requirements
-
-### Installation
-
-### Usage
-
-## Mass ReNamer
-
-It operates on single files or groups of files by populating a buffer with a listing of files, parsing the arguments to generate a sequence of actions, processing the actions in order and applying their effects to the contents of the file name buffer. The final state for each file name is shown and confirmation is requested before renaming the files.
-
-## Time Stamp Sorter
-
-The time stamp sorter will examine all files in a directory and check them
-against a regular expression to see whether they contain something that looks
-like a date.
-
-The regular expression is
-`"\D*(20[01]\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*"`
-which essentially looks for `YYYY?MM?DD` or `YYYYMMDD`, where `YYYY` in
-`[2000-2019]`, `MM` in `[01-12]`, and `DD` in `[01-31]`.
-
-If the filename does contain a date it will create a directory named after the
-date and move the file into it.
-
----
-# Old Documentation
-
-## Name Pryer
-
-**pry** *transitive verb*
-
-1. to raise, move, or pull apart with a lever: prize
-2. to extract, detach, or open with difficulty <pried the secret out of my sister>
-
-**pry** *noun*
-
-1. a tool for prying
-2. leverage
-
-### Overview
-
-**name-pryer** is a simple command-line script for manipulating file names, a file name swiss army knife. It operates on single files or groups of files by populating a buffer with a listing of files, parsing the arguments to generate a sequence of actions, processing the actions in order and applying their effects to the contents of the file name buffer. The final state for each file name is shown and confirmation is requested before renaming the files.
-
-**Feature Overview**:
-* `-h` will emit a helpful text with available flags
-* `-v` allows setting the verbosity level
-* `-y` yes mode will skip confirmation
-* `-u` will create an undo script
-* `-F FILENAME` will operate on a single file
-* `-D DIR` will set the working directory
-* `-R` will recurse directories
-* `-M [f | d | b]` allows operating only on files, directories or both
-* `-g GLOB` allows specifying a glob pattern to match files
-* `-p` allows specifying a pattern with fields, extracting those fields into the new filename, and generating values such as counters, random numbers, and dates
-* `-c [lc | uc | tc | sc]` allows changing to upper, lower, sentence or title case
-* `-C` allows splitting words in camel case
-* `+C` allows joining words separated by underscores into camel case
-* `-d X (Y | end)` allows deleting a region
-* `-i X (Y | end)` allows inserting
-* `-n` will sanitize the filename, removing all non-alphanumeric characters
-* `+e EXT` allows adding an extension
-* `-e [EXT]` allows modifying the extension or removing it if not specified
-* `-r X Y` allows replacing characters
-* `-s` is a shortform for substituting spaces, periods, dashes and underscores
-* `-t` will tokenize the filename and allow selecting which tokens remaing and in which order
-* `--git` will rename the files by calling `git mv`
+filenames and paths, a file name swiss army knife, if you will. It operates on
+single files or groups of files by populating a buffer, parsing the arguments
+to generate a sequence of actions, processing the actions in order and applying
+their effects to the contents of the file name buffer. The final state for
+each file name is shown and confirmation is requested before renaming the files.
 
 ### License and Credits
+There are many file renaming tools, but this one is mine. I was heavily
+inspired by [pyRenamer](https://github.com/SteveRyherd/pyRenamer) by Adolfo
+González Blázquez.
 
-**name-pryer** is an anagram of [pyRenamer](https://github.com/SteveRyherd/pyRenamer) by Adolfo González Blázquez, from which it inherits much.
 Other work similar to this:
 * [kevbradwick/pyrenamer](https://github.com/kevbradwick/pyrenamer)
 * [italomaia/renamer](https://github.com/italomaia/renamer)
 * [Donearm/Renamer](https://github.com/Donearm/Renamer)
 
-The original **pyRenamer** has a GPL 2 license, and since I used its code for the pattern match operator, this is what **name-pryer** has.
-
 ### Requirements
-
-**name-pryer** requires Python 3 and has no other dependencies. It has been tested only on Linux.
+Rust must be installed to compile the executable.
 
 ### Installation
+The Makefile provides `install` and `uninstall` targets which will compile in
+release mode and place or remove the resulting binary executable in
+`$HOME/.local/bin/`.
 
-**name-pryer** is a stand-alone script. Just download the ``name-pryer.py`` file, set it as executable, put it in your ``$PATH`` and alias to your finger's content.
+### Usage
+```bash
+$ ocd
+A swiss army knife of utilities to work with files.
 
-### Flags without effects on file names
+Usage: ocd <COMMAND>
 
-``-h``
+Commands:
+  mrn   Mass Re-Name
+  tss   Time Stamp Sort
+  id3   Fix ID3 tags
+  lphc  Run the Elephant client
+  lphs  Start the Elephant server
+  help  Print this message or the help of the given subcommand(s)
 
-Help. Print a message with a summary of the options.
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+```
 
----
-``-v 0 -v 1 -v 2 -v 3``
+## MRN: Mass ReNamer
+```bash
+Mass Re-Name
 
-Verbosity level.
+Usage: ocd mrn [OPTIONS] <INPUT> [GLOB]
 
+Arguments:
+  <INPUT>  The rewrite rules to apply to filenames.
+           The value is a comma-separated list of the following rules:
+           s                    Sanitize
+           cl                   Lower case
+           cu                   Upper case
+           ct                   Title case
+           cs                   Sentence case
+           jc                   Join camel case
+           jk                   Join kebab case
+           js                   Join snaje case
+           sc                   Split camel case
+           sk                   Split kebab case
+           ss                   Split snake case
+           r <match> <text>     Replace <match> with <text>
+                                <match> and <text> are both single-quote delimited strings
+           rdp                  Replace dashes with periods
+           rds                  Replace dashes with spaces
+           rdu                  Replace dashes with underscores
+           rpd                  Replace periods with dashes
+           rps                  Replace periods with spaces
+           rpu                  Replace periods with underscores
+           rsd                  Replace spaces with dashes
+           rsp                  Replace spaces with periods
+           rsu                  Replace spaces with underscores
+           rud                  Replace underscores with dashes
+           rup                  Replace underscores with periods
+           rus                  Replace underscores with spaces
+           i <pos> <text>       Insert <text> at <position>
+                                <text> is a single-quote delimited string
+                                <pos> may be a non-negative integer or the keyword 'end'
+           d <index> <pos>      Delete from <index> to <position>
+                                <index> is a non-negative integer,
+                                <pos> may be a non-negative integer or the keyword 'end'
+           ea <extension>       Change the extension, or add it if the file has none.
+           er                   Remove the extension.
+           o                    Interactive reorder, see documentation on use.
+           p <match> <replace>  Pattern match, see documentation on use.
+  [GLOB]   Operate only on files matching the glob pattern, e.g. `-g \"*.mp3\"`.
+           If --dir is specified as well it will be concatenated with the glob pattern.
+           If --recurse is also specified it will be ignored.
+
+Options:
+  -v...                  Sets the verbosity level.
+                         Default is low, one medium, two high, three or more debug.
+      --silent           Silences all output.
+  -d, --dir <DIR>        Run inside a given directory.
+                         [default: ./]
+      --dry-run          Do not effect any changes on the filesystem.
+  -u, --undo             Create undo script.
+      --yes              Do not ask for confirmation.
+      --git              Rename files by calling `git mv`
+  -m, --mode <MODE>      Specified whether the rules are applied to directories,
+                         files or all.
+                         [default: files]
+                         [possible values: all, directories, files]
+      --parser <PARSER>  Specifies with parser to use.
+                         [default: lalrpop]
+                         [possible values: handwritten, lalrpop]
+  -r, --recurse          Recurse directories.
+  -h, --help             Print help
+```
+
+### Verbosity
 * Level 0 is silent running and will produce no output.
-* Level 1 will show the final state of the file name buffer and is the default.
-* Level 2 will in addition list the actions to be applied.
-* Level 3 will in addition show the state of the file name buffer at each step.
+* Level 1 is low, the default and will only show the final state of the file name buffer.
+* Level 2 is medium, and will in addition list the actions to be applied.
+* Level 3 is debug level and will in addition show the state of the file name buffer at each step.
 
-The ``-v X`` flags count as actions, but do not affect the file name buffer. They can be listed several times with different levels, interspersed among the other actions to raise or lower the verbosity during operation.
+### `--yes`
+Yes or non-interactive mode will not ask for confirmation and assume the user
+confirms everything. Useful for batch scripts.
 
-If the ``-v 2`` or ``-v 3`` parameter is present, regardless of position, a list of actions will be output at the beginning.
+### `--undo`
+Creates a shell script `undo.sh` with commands which may be run to undo the last
+renaming operations.
 
----
-``-y``
+### Rewrite instructions
+The `INPUT` argument is a string of comma-separated rewrite instructions.
 
-Yes mode. Do not ask for confirmation. Useful for non-interactive batch scripts.
-
-* Example:
-
+Example:
 ```bash
-$ np -v 0 -y -s us
+$ ocd mrn "cl,rus,p '{a} {n}' '{2} {1}',i '-FINAL' end"
 ```
 
----
-``-u``
+### Pattern Matching
 
-Creates a script `undo.sh` which may be run to undo the last renaming operations.
+#### Match Pattern
 
-### Filters
+#### Replace Pattern
 
-Filters will specify which files remain in the buffer in addition to applying transformations on the file names therein. They affect how the file name buffer is populated, before any actions are applied.
+### Interative Reorder
 
----
-``-F FILE``
+### Examples
 
-Operate on a single file instead of all files in the current directory. Essentially drops all file names from the buffer that do not match its value exactly.
+## TSS: Time Stamp Sorter
+The time stamp sorter will examine all files in a directory and check them
+against a regular expression to see whether they contain something that looks
+like a date.
 
-* Example
+The regular expression combines two common patterns:
+- `YYYY?MM?DD` or `YYYYMMDD`,
+- `DAY MONTH YEAR` where `DAY` may be 1-31 and `MONTH` is the case-insensitive
+  English name of the month or its three-letter abbreviations.
 
-```bash
-$ ls
-folder  eighth_ninth_tenth.txt  fifth_sixth_seventh.txt  first_second_third_fourth.txt
-
-$ np -F eighth_ninth_tenth.txt -s us
-eighth_ninth_tenth.txt => eighth ninth tenth.txt
-
-y/n?
-```
-
----
-``-M [f | d | b]``
-
-Operation mode.
-
-* Options:
-  * **f**: Operate only on files (default).
-  * **d**: Operate only on directories.
-  * **b**: Operate both on directories and files.
-
-* Example
-
-```bash
-$ ls -l
-total 4
-drwxr-xr-x 3 igaray igaray 4096 Dec 28 05:26 folder
--rw-r--r-- 1 igaray igaray    0 Dec 28 04:22 eighth_ninth_tenth
--rw-r--r-- 1 igaray igaray    0 Dec 28 04:21 fifth_sixth_seventh
--rw-r--r-- 1 igaray igaray    0 Dec 27 21:04 first_second_third_fourth
-
-$ np -M f +e txt
-eighth_ninth_tenth        => eighth_ninth_tenth.txt
-fifth_sixth_seventh       => fifth_sixth_seventh.txt
-first_second_third_fourth => first_second_third_fourth.txt
-
-$ np -M d +e txt
-folder => folder.txt
-
-$ np -M b +e txt
-eighth_ninth_tenth        => eighth_ninth_tenth.txt
-fifth_sixth_seventh       => fifth_sixth_seventh.txt
-first_second_third_fourth => first_second_third_fourth.txt
-folder                    => folder.txt
-```
-
----
-``-D DIR``
-
-Set working directory. Default is current directory.
-
----
-``-R``
-
-Recurse directories, may be used in combination with `-m` and `-D` and `-g`.
-
----
-``-g GLOB``
-
-Operate only on files matching the glob pattern, e.g. `-g "*.mp3"`.
-
-* Examples
-
-```bash
-$ tree
-.
-├── eighth_ninth_tenth.txt
-├── fifth_sixth_seventh.txt
-├── first_second_third_fourth.txt
-└── folder
-    ├── eighth_ninth_tenth.txt
-    └── folder2
-        └── fifth_sixth_seventh2.txt
-
-2 directories, 5 files
-
-# Add extension 666, only to files in the current directory.
-$ np +e 666
-eighth_ninth_tenth.txt        => eighth_ninth_tenth.666
-fifth_sixth_seventh.txt       => fifth_sixth_seventh.666
-first_second_third_fourth.txt => first_second_third_fourth.666
-
-# Add extension 666, only to files in the current directory starting with f.
-$ np -g "f*" +e 666
-fifth_sixth_seventh.txt       => fifth_sixth_seventh.666
-first_second_third_fourth.txt => first_second_third_fourth.666
-
-# Add extension 666 recursively, defaults to only files.
-$ np -R +e 666
-/home/igaray/tmp/test/eighth_ninth_tenth.txt
-    => /home/igaray/tmp/test/eighth_ninth_tenth.666
-/home/igaray/tmp/test/fifth_sixth_seventh.txt
-    => /home/igaray/tmp/test/fifth_sixth_seventh.666
-/home/igaray/tmp/test/first_second_third_fourth.txt
-    => /home/igaray/tmp/test/first_second_third_fourth.666
-/home/igaray/tmp/test/folder/eighth_ninth_tenth.txt
-    => /home/igaray/tmp/test/folder/eighth_ninth_tenth.666
-/home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.txt
-    => /home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.666
-
-# Add extension 666 recursively, only to files starting with the letter f.
-$ np -R -g "f*" +e 666
-/home/igaray/tmp/test/fifth_sixth_seventh.txt
-    => /home/igaray/tmp/test/fifth_sixth_seventh.666
-/home/igaray/tmp/test/first_second_third_fourth.txt
-    => /home/igaray/tmp/test/first_second_third_fourth.666
-/home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.txt
-    => /home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.666
-
-# Add extension 666 recursively, only to directories starting with f.
-$ np -M d -R -g "f*" +e 666
-/home/igaray/tmp/test/folder         => /home/igaray/tmp/test/folder.666
-/home/igaray/tmp/test/folder/folder2 => /home/igaray/tmp/test/folder/folder2.666
-
-# Add extension 666 recursively, to both files and directories starting with f.
-$ np -M b -R -g "f*" +e 666
-/home/igaray/tmp/test/fifth_sixth_seventh.txt
-    => /home/igaray/tmp/test/fifth_sixth_seventh.666
-/home/igaray/tmp/test/first_second_third_fourth.txt
-    => /home/igaray/tmp/test/first_second_third_fourth.666
-/home/igaray/tmp/test/folder
-    => /home/igaray/tmp/test/folder.666
-/home/igaray/tmp/test/folder/folder2
-    => /home/igaray/tmp/test/folder/folder2.666
-/home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.txt
-    => /home/igaray/tmp/test/folder/folder2/fifth_sixth_seventh2.666
-```
-
----
-``-p SOURCE_PATTERN DESTINATION_PATTERN``
-
-The pattern matching filter makes regular expressions usable.
-This is the most useful operator and is taken directly from **pyRenamer**'s code.
-
-**Pattern**     | **Description**
-----------------|----------------
-``{#}``         | Numbers
-``{L}``         | Letters
-``{C}``         | Characters (Numbers & letters, not spaces)
-``{X}``         | Numbers, letters, and spaces
-``{@}``         | Trash
-``{numX+Y}``    | Generates a number, padded to **X** characters with leading 0s, stepping by **Y**. **X** may be absent. **Y** may be absent and defaults to 1.
-``{numX+Y,Z}``  | Generates a number, padded to **X** characters with leading 0s, stepping by **Y**. **X** may be absent. **Y** may be absent and defaults to 1.
-``{rand}``      | Generates a random number from 0 to 100.
-``{randX}``     | Generates a random number from 0 to **X**.
-``{randX-Y}``   | Generates a random number from **X** to **Y**.
-``{randX-Y,Z}`` | Generates a random number from **X** to **Y**, padded to **Z**. characters.
-``{date}``      | Generates the date (e.g. 2014-12-31)
-``{year}``      | Generates the year (e.g. 2014)
-``{month}``     | Generates the month number (e.g. 12)
-``{monthname}`` | Generates the month’s name (December)
-``{monthsimp}`` | Generates the months abbreviated name (e.g. Dec)
-``{day}``       | Generates the day’s number (31)
-``{dayname}``   | Generates the day’s name (e.g. Wednesday)
-``{daysimp}``   | Generates the day’s abbreviated name (e.g. Wed)
-
-* Examples
-
-TODO
-
----
-```bash
-% pwd
-/Users/inaki/Music/Thriftworks - Deviation (2013)/Thriftworks - Deviation (2013)
-
-% ls -1
-01 - Untrue.mp3
-02 - Fits the Bill.mp3
-03 - Feeding Time.mp3
-04 - Someone (feat. Oriel Poole).mp3
-05 - The Touch.mp3
-06 - Metal Tho.mp3
-07 - Terminally Chill.mp3
-08 - Nanometer.mp3
-
-% name-pryer.py -v 3 -p "{#} - {X}" "{1} {2}"
-actions:
-verbosity 3
-pattern   {#} - {X} {1} {2}
-
-setting verbosity level to 3
-----------------------------------------------------------------------
-pattern {#} - {X} {1} {2}
-01 - Untrue.mp3                      => 01 Untrue.mp3
-02 - Fits the Bill.mp3               => 02 Fits the Bill.mp3
-03 - Feeding Time.mp3                => 03 Feeding Time.mp3
-04 - Someone (feat. Oriel Poole).mp3 => 04 Someone (feat. Oriel Poole).mp3
-05 - The Touch.mp3                   => 05 The Touch.mp3
-06 - Metal Tho.mp3                   => 06 Metal Tho.mp3
-07 - Terminally Chill.mp3            => 07 Terminally Chill.mp3
-08 - Nanometer.mp3                   => 08 Nanometer.mp3
-
-y/n?
-y
-
-% ls -1
-01 Untrue.mp3
-02 Fits the Bill.mp3
-03 Feeding Time.mp3
-04 Someone (feat. Oriel Poole).mp3
-05 The Touch.mp3
-06 Metal Tho.mp3
-07 Terminally Chill.mp3
-08 Nanometer.mp3
-```
-
-### Transformations
-
-Transformations visit every file name in the buffer and transform them in some way. None of the transformations will affect the extension or the period just before the extension.
-
----
-``-C``
-
-Split words in camelCase.
-
-* Example
-
-```bash
-% ls -1
-folder
-EighthNinthTenth.txt
-FifthSixthSeventh.txt
-FirstSecondThirdFourth.txt
-
-$ np -C
-EighthNinthTenth.txt       => Eighth Ninth Tenth.txt
-FifthSixthSeventh.txt      => Fifth Sixth Seventh.txt
-FirstSecondThirdFourth.txt => First Second Third Fourth.txt
-
-y/n?
-
-% ls -1
-folder
-Eighth Ninth Tenth.txt
-Fifth Sixth Seventh.txt
-First Second Third Fourth.txt
-```
-
----
-``+C``
-
-Join words separated by underscores into camelCase.
-
-* Example
-
-```bash
-% ls -1
-folder
-eighth_ninth_tenth.txt
-fifth_sixth_seventh.txt
-first_second_third_fourth.txt
-
-$ np +C
-eighth_ninth_tenth.txt        => EighthNinthTenth.txt
-fifth_sixth_seventh.txt       => FifthSixthSeventh.txt
-first_second_third_fourth.txt => FirstSecondThirdFourth.txt
-
-y/n?
-
-% ls -1
-folder
-EighthNinthTenth.txt
-FifthSixthSeventh.txt
-FirstSecondThirdFourth.txt
-```
-
----
-``-c [lc | uc | tc | sc]``
-
-Change case.
-If you wish to capitalize the extension, use the ``-e`` flag.
-
-* Options
-  * **lc**: lowercase
-  * **uc**: uppercase
-  * **tc**: title case
-  * **sc**: sentence case
-
-* Examples
-
-```bash
-$ ls
-folder  eighth_ninth_tenth  fifth_sixth_seventh  first_second_third_fourth
-
-$ np -c uc
-eighth_ninth_tenth        => EIGHTH_NINTH_TENTH
-fifth_sixth_seventh       => FIFTH_SIXTH_SEVENTH
-first_second_third_fourth => FIRST_SECOND_THIRD_FOURTH
-
-$ np -c tc
-eighth_ninth_tenth        => Eighth_Ninth_Tenth
-fifth_sixth_seventh       => Fifth_Sixth_Seventh
-first_second_third_fourth => First_Second_Third_Fourth
-
-$ np -c sc
-eighth_ninth_tenth        => Eighth_ninth_tenth
-fifth_sixth_seventh       => Fifth_sixth_seventh
-first_second_third_fourth => First_second_third_fourth
-```
-
----
-``-d X [Y | end]``
-
-Delete from position X to Y [or end].
-The end is just before the last period.
-
-* X must be a non-negative integer.
-* Y must be a either the string 'end' or a non-negative integer.
-
-* Examples
-
-```bash
-$ ls
-folder  eighth_ninth_tenth  fifth_sixth_seventh  first_second_third_fourth
-
-$ np -d 0 4
-eighth_ninth_tenth        => h_ninth_tenth
-fifth_sixth_seventh       => _sixth_seventh
-first_second_third_fourth => _second_third_fourth
-
-$ np -d 4 end
-eighth_ninth_tenth        => eigh
-fifth_sixth_seventh       => fift
-first_second_third_fourth => firs
-```
-
----
-``-i X [Y | end]``
-
-Insert X at position Y [or end].
-The end is just before the last period.
-
-* X must be a string
-* Y must be either the string 'end' or a non-negative integer
-
-* Examples
-
-```bash
-$ ls
-folder  eighth_ninth_tenth  fifth_sixth_seventh  first_second_third_fourth
-
-$ np -i xxx_ 0
-eighth_ninth_tenth        => xxx_eighth_ninth_tenth
-fifth_sixth_seventh       => xxx_fifth_sixth_seventh
-first_second_third_fourth => xxx_first_second_third_fourth
-
-$ np -i xxx_ 6
-eighth_ninth_tenth        => eighthxxx__ninth_tenth
-fifth_sixth_seventh       => fifth_xxx_sixth_seventh
-first_second_third_fourth => first_xxx_second_third_fourth
-
-$ np -i _xxx end
-eighth_ninth_tenth        => eighth_ninth_tenth_xxx
-fifth_sixth_seventh       => fifth_sixth_seventh_xxx
-first_second_third_fourth => first_second_third_fourth_xxx
-```
-
----
-``[+|-]e [EXT]``
-
-Modifies the extension.
-* ``+e EXT`` adds the extension to the file name.
-* ``-e`` removes the existing extension from the file name.
-* ``-e EXT`` changes the existing extension to ``EXT``.
-
-* Examples
-
-TODO
-
----
-``-r X Y``
-
-Replace X with Y.
-
----
-``-s [sd | sp | su | ud | up | us | pd | ps | pu | dp | ds | du ]``
-
-Convert one character to another.
-
-* Options:
-  * **sd**: spaces to dashes
-  * **sp**: spaces to periods
-  * **su**: spaces to underscores
-  * **ud**: underscores to dashes
-  * **up**: underscores to periods
-  * **us**: underscores to spaces
-  * **pd**: periods to dashes
-  * **ps**: periods to space
-  * **pu**: periods to underscores
-  * **dp**: dashes to periods
-  * **ds**: dashes to spaces
-  * **du**: dashes to underscores
-
-* Examples
-
-TODO
-
----
-``-n``
-
-Sanitizes filenames by removing anything that is not an alphanumeric field.
-
-* Examples
-
-TODO
-
----
-``-t [1 | 2 | 3]``
-
-Interactive tokenization mode. Tokenizes the file name and prints out each token with a reference character underneath it. It then waits for the user to input a pattern indicating how the tokens should be rearranged.
-
-If mode is 1, then the input pattern is expected to be simple a space-separated list of token indicators.
-
-If mode is 2, then the input pattern is expected to be a match expression similar to the ones used with the ``-p`` flag. The input string will be the new filename, after having all occurrences of ``{X}`` patterns replaced, where ``X`` is a token reference.
-
-If mode is 3, it behaves exactly the same as mode 2 except that the token references do not need to be surrounded by braces, but anything matching a token reference will be replaced by the referenced token.
-
-* Examples
-
-TODO
+If the filename does contain a date it will create a directory named after the
+date and move the file into it.

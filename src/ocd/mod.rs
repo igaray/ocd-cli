@@ -1,7 +1,8 @@
 //! Main OCD module.
-pub mod date;
-pub mod mrn;
-pub mod tss;
+pub(crate) mod date;
+pub(crate) mod mrn;
+pub(crate) mod tests;
+pub(crate) mod tss;
 
 use crate::ocd::date::DateSource;
 use clap::ValueEnum;
@@ -21,14 +22,14 @@ use std::process::Command;
 
 /// File processing mode, filters only regular files, only directories, or both.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum Mode {
+pub(crate) enum Mode {
     All,
     Directories,
     Files,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum Verbosity {
+pub(crate) enum Verbosity {
     Silent,
     Low,
     Medium,
@@ -79,7 +80,7 @@ trait Speaker {
 /// the `Move` variant which is only used in the Time Stamp Sorted utility, it
 /// is inluded there.
 #[derive(Debug)]
-enum Action {
+pub(crate) enum Action {
     Move {
         date_source: Option<DateSource>,
         path: PathBuf,
@@ -102,7 +103,7 @@ impl Display for Action {
 /// created (to include deletion instructions in an undo file), whether or not
 /// git is to be used to perform actions on the filesystem, and string lengths
 /// for presentation.
-struct Plan {
+pub(crate) struct Plan {
     pub actions: BTreeMap<PathBuf, Action>,
     dirs: HashSet<PathBuf>,
     use_git: bool,
@@ -111,7 +112,7 @@ struct Plan {
 }
 
 impl Plan {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Plan {
             dirs: HashSet::new(),
             actions: BTreeMap::new(),
@@ -121,12 +122,12 @@ impl Plan {
         }
     }
 
-    pub fn with_git(mut self, use_git: bool) -> Self {
+    pub(crate) fn with_git(mut self, use_git: bool) -> Self {
         self.use_git = use_git;
         self
     }
 
-    pub fn with_files(mut self, files: Vec<PathBuf>) -> Self {
+    pub(crate) fn with_files(mut self, files: Vec<PathBuf>) -> Self {
         for file in files {
             self.insert(file.clone(), Action::Rename { path: file.clone() });
         }
@@ -135,7 +136,7 @@ impl Plan {
 
     /// Removes all actions in plan which would result in the file being renamed
     /// into itself or moved into the current directory.
-    pub fn clean(&mut self) {
+    pub(crate) fn clean(&mut self) {
         // Retains only the elements specified by the predicate.
         // In other words, remove all pairs for which the predicate returns false.
         self.actions.retain(|src, action| match action {
@@ -144,7 +145,7 @@ impl Plan {
         })
     }
 
-    pub fn insert(&mut self, src: PathBuf, action: Action) {
+    pub(crate) fn insert(&mut self, src: PathBuf, action: Action) {
         let path = match action {
             Action::Move { ref path, .. } => {
                 // In the case of a move, the program will have created a
@@ -169,7 +170,7 @@ impl Plan {
         self.actions.insert(src, action);
     }
 
-    pub fn present_short(&self) {
+    pub(crate) fn present_short(&self) {
         let msl = self.max_src_len;
         let mdl = self.max_dst_len;
         for (src, action) in &self.actions {
@@ -188,7 +189,7 @@ impl Plan {
         }
     }
 
-    pub fn present_long(&self) {
+    pub(crate) fn present_long(&self) {
         println!("Result:");
         for (src, action) in &self.actions {
             match action {
@@ -207,7 +208,7 @@ impl Plan {
         }
     }
 
-    pub fn execute(&self) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn execute(&self) -> Result<(), Box<dyn Error>> {
         for (src, action) in &self.actions {
             match action {
                 Action::Move { path, .. } => {
@@ -222,7 +223,7 @@ impl Plan {
         Ok(())
     }
 
-    pub fn create_undo(&self) -> io::Result<()> {
+    pub(crate) fn create_undo(&self) -> io::Result<()> {
         let git = if self.use_git { "git " } else { "" };
         let mut undo_file = std::fs::File::create("undo.sh")?;
         for (src, action) in &self.actions {

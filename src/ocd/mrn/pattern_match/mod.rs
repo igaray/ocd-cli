@@ -27,10 +27,11 @@ pub fn process_match(match_pattern: String) -> String {
     let match_pattern = match_pattern.replace('(', r"\(");
     let match_pattern = match_pattern.replace(')', r"\)");
     let match_pattern = match_pattern.replace('?', r"\?");
-    let match_pattern = match_pattern.replace("{A}", r"([[:alpha:]]*)"); // Alphabetic
-    let match_pattern = match_pattern.replace("{N}", r"([[:digit:]]*)"); // Digits
-    let match_pattern = match_pattern.replace("{X}", r"(.*)"); // Anything
-    let mut match_pattern = match_pattern.replace("{D}", crate::ocd::date::DATE_REGEX); // Date
+    let match_pattern = match_pattern.replace("{A}", r"([[:alpha:]]*)");
+    let match_pattern = match_pattern.replace("{N}", r"([[:digit:]]*)");
+    let match_pattern = match_pattern.replace("{X}", r"([^\s]*)");
+    let match_pattern = match_pattern.replace("{D}", crate::ocd::date::DATE_FLORB_REGEX_STR);
+    let mut match_pattern = match_pattern;
     match_pattern.insert(0, '^');
     match_pattern.push('$');
     match_pattern
@@ -60,22 +61,22 @@ pub fn apply(
     match_pattern: &str,
     replace_pattern: &ReplacePattern,
 ) -> String {
+    let florb_matches = extract_florb_matches(filename, match_pattern);
     if config.verbosity() == Verbosity::Debug {
         println!("Pattern match instruction");
-        println!("    index: {:?}", index);
-        println!("    filename: {:?}", filename);
-        println!("    input match pattern: {:?}", match_pattern);
-        println!("    input replace pattern: {:?}", replace_pattern);
+        println!("    index: {index:?}");
+        println!("    filename: {filename:?}");
+        println!("    input match pattern: {match_pattern:?}");
+        println!("    input replace pattern: {replace_pattern:?}");
+        println!("    florb matches: {florb_matches:?}");
     }
 
-    let florb_matches = extract_florb_matches(filename, match_pattern);
     let mut filename = String::new();
     for rpc in &replace_pattern.components {
         match rpc {
-            ReplacePatternComponent::DateGenerator => {
-                todo!()
-            }
             ReplacePatternComponent::Florb(ref index) => {
+                // TODO error/warning message if the else happens, and in general check florb indexes
+                // if a florb index was not there, perhaps it should cancel the entire apply and just return the input
                 if let Some(florb_match) = florb_matches.get(*index - 1) {
                     filename.push_str(florb_match.as_str())
                 }
@@ -91,7 +92,7 @@ pub fn apply(
                 let between = Uniform::new(start, end);
                 let mut rng = rand::thread_rng();
                 let n: usize = between.sample(&mut rng);
-                let num = String::from(format!("{:0padding$}", n));
+                let num = format!("{:0padding$}", n);
                 filename.push_str(num.as_str());
             }
             ReplacePatternComponent::SequentialNumberGenerator {
@@ -99,7 +100,7 @@ pub fn apply(
                 step,
                 padding,
             } => {
-                let num = String::from(format!("{:0padding$}", start + (index * step)));
+                let num = format!("{:0padding$}", start + (index * step));
                 filename.push_str(num.as_str());
             }
         }
@@ -109,11 +110,34 @@ pub fn apply(
 
 /// Extract data from filename using the match pattern
 fn extract_florb_matches(filename: &str, match_pattern: &str) -> Vec<String> {
-    let match_regex = Regex::new(&match_pattern).unwrap();
-    let captures = match_regex.captures(filename).unwrap();
-    captures
-        .iter()
-        .skip(1)
-        .map(|e| e.unwrap().as_str().to_string())
-        .collect::<Vec<_>>()
+    match Regex::new(match_pattern) {
+        Ok(match_regex) => match match_regex.captures(filename) {
+            None => {
+                eprintln!("No captures found for \n    regex {match_pattern:?} \n    in filename {filename:?}");
+                vec![]
+            }
+            Some(captures) => captures
+                .iter()
+                .skip(1)
+                .filter(|e| e.is_some())
+                .map(|e| {
+                    let e = e.unwrap().as_str();
+                    if crate::ocd::date::DATE_FLORB_REGEX.is_match(e) {
+                        let (year, month, day) = crate::ocd::date::regex_date(e).unwrap();
+                        format!("{year}-{month}-{day}")
+                    } else {
+                        e.to_string()
+                    }
+                })
+                .collect::<Vec<_>>(),
+        },
+        Err(e) => {
+            // TODO handle this error better
+            eprintln!("{:?}", e);
+            panic!(
+                "Could not compile the match pattern regex: {:?}",
+                match_pattern
+            );
+        }
+    }
 }
