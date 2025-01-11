@@ -1,146 +1,206 @@
-use crate::ocd::config::{directory_value, verbosity_value, Verbosity};
-use lazy_static::lazy_static;
-use regex::Regex;
-use std::collections::BTreeMap;
+//! Time Stamp Sorter
+//!
+//! This command sorts image files into folders named after a date extracted from the image.
+
+use crate::ocd::date::exif_date;
+use crate::ocd::date::filename_date;
+use crate::ocd::date::metadata_date;
+use crate::ocd::date::DateSource;
+use crate::ocd::Action;
+use crate::ocd::Plan;
+use crate::ocd::Speaker;
+use crate::ocd::Verbosity;
+use clap::Args;
 use std::error::Error;
-use std::fs;
-use std::io;
-use std::option;
-use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
+use std::path::Path;
+use std::path::PathBuf;
+use walkdir::DirEntry;
+use walkdir::WalkDir;
 
-#[derive(Clone, Debug)]
-pub struct TimeStampSortConfig {
-    pub verbosity: Verbosity,
-    pub dir: PathBuf,
-    pub dryrun: bool,
-    pub undo: bool,
-    pub yes: bool,
+/// Arguments to the time stamp sort command.
+#[derive(Clone, Debug, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+pub struct TimeStampSortArgs {
+    #[arg(action = clap::ArgAction::Count)]
+    #[arg(help = r#"Sets the verbosity level.
+Default is low, one medium, two high, three or more debug."#)]
+    #[arg(short = 'v')]
+    verbosity: u8,
+
+    #[arg(help = "Silences all output.")]
+    #[arg(long)]
+    silent: bool,
+
+    #[arg(default_value = "./")]
+    #[arg(help = "Run inside a given directory.")]
+    #[arg(long)]
+    #[arg(short = 'd')]
+    dir: PathBuf,
+
+    #[arg(help = "Do not effect any changes on the filesystem.")]
+    #[arg(long = "dry-run")]
+    dry_run: bool,
+
+    #[arg(help = "Create undo script.")]
+    #[arg(long)]
+    #[arg(short = 'u')]
+    undo: bool,
+
+    #[arg(help = "Do not ask for confirmation.")]
+    #[arg(long)]
+    yes: bool,
+
+    #[arg(help = "Rename files by calling `git mv`.")]
+    #[arg(long)]
+    git: bool,
+
+    #[arg(help = "Recurse directories.")]
+    #[arg(long)]
+    #[arg(short = 'r')]
+    recurse: bool,
+
+    #[arg(help = "Restricts sources for inferring the image date.")]
+    #[arg(long)]
+    source: bool,
 }
 
-impl TimeStampSortConfig {
-    pub fn new() -> TimeStampSortConfig {
-        TimeStampSortConfig {
-            verbosity: Verbosity::Low,
-            dir: PathBuf::new(),
-            dryrun: true,
-            undo: false,
-            yes: false,
-        }
-    }
-
-    pub fn with_args(&self, matches: &clap::ArgMatches) -> TimeStampSortConfig {
-        TimeStampSortConfig {
-            verbosity: verbosity_value(matches),
-            dir: directory_value(matches.value_of("dir").unwrap()),
-            dryrun: matches.is_present("dry-run"),
-            undo: matches.is_present("undo"),
-            yes: matches.is_present("yes"),
-        }
+impl Speaker for TimeStampSortArgs {
+    fn verbosity(&self) -> Verbosity {
+        crate::ocd::Verbosity::new(self.silent, self.verbosity)
     }
 }
 
-pub fn run(config: &TimeStampSortConfig) -> Result<(), Box<dyn Error>> {
-    if !config.dryrun && config.undo {
-        crate::ocd::output::undo_script(config.verbosity);
-        // TODO: implement undo
+pub fn run(config: &TimeStampSortArgs) -> Result<(), Box<dyn Error>> {
+    if config.source {
+        todo!("Selection of date source is not implemented yet!");
     }
 
-    let mut files = BTreeMap::new();
-    for entry in WalkDir::new(&config.dir) {
-        match entry {
-            Ok(entry) => {
-                insert_if_timestamped(config, &mut files, entry);
-            }
-            Err(reason) => return Err(Box::new(reason)),
+    // Initialize plan
+    let plan = create_plan(config)?;
+
+    // Present plan to user.
+    // If verbosity is Low or Medium use the short presentation.
+    // If verbosity is High or Debug use the long presentation.
+    if Verbosity::Silent < config.verbosity() && config.verbosity() < Verbosity::High {
+        plan.present_short();
+    }
+    if Verbosity::Medium < config.verbosity() {
+        plan.present_long();
+    }
+
+    // Maybe create undo script
+    if !config.dry_run && config.undo {
+        if !config.verbosity().is_silent() {
+            println!("Creating undo script.");
         }
+        plan.create_undo()?;
     }
 
-    if config.yes || crate::ocd::input::user_confirm() {
-        for (src, dst) in files {
-            create_dir_and_move_file(config, src, dst)?;
-        }
+    // Skip if dry run, execute unconditionally or ask for confirmation
+    if !config.dry_run && (config.yes || crate::ocd::user_confirm()) {
+        plan.execute()?;
     }
-
     Ok(())
 }
 
-fn insert_if_timestamped(
-    config: &TimeStampSortConfig,
-    files: &mut BTreeMap<PathBuf, PathBuf>,
-    entry: DirEntry,
-) {
-    let path = entry.into_path();
-    if !path.is_dir() {
-        if let Some(destination) = destination(&config.dir, &path) {
-            files.insert(path, destination);
-        }
-    }
-}
-
-fn create_dir_and_move_file(
-    config: &TimeStampSortConfig,
-    file: PathBuf,
-    destination: PathBuf,
-) -> Result<(), Box<dyn Error>> {
-    create_directory(config, &destination)?;
-    move_file(config, &file, &destination)?;
-    Ok(())
-}
-
-fn destination(base_dir: &Path, file_name: &Path) -> option::Option<PathBuf> {
-    // let file = std::fs::File::open(file_name).unwrap();
-    // let reader = exif::Reader::new(&mut std::io::BufReader::new(&file)).unwrap();
-    // for f in reader.fields() {
-    //     f.tag, f.thumbnail, f.value.display_as(f.tag));
+fn create_plan(config: &TimeStampSortArgs) -> Result<Plan, Box<dyn Error>> {
+    // version 1
+    // for entry in WalkDir::new(&config.dir) {
+    //     match entry {
+    //         Ok(entry) => {
+    //             insert_if_timestamped(config, &mut files, entry);
+    //         }
+    //         Err(reason) => {
+    //             // reason is Error, so we need to box it for it to be Box<dyn Error>
+    //             return Err(Box::new(reason));
+    //         }
+    //     }
     // }
-    file_name
-        .to_str()
-        .and_then(date)
-        .map(|(year, month, day)| base_dir.join(format!("{}-{}-{}", year, month, day)))
+
+    // version 2
+    // for entry in WalkDir::new(&config.dir) {
+    //     if let Err(reason) = entry.and_then(|entry| {
+    //         insert_if_timestamped(config, &mut files, entry);
+    //         Ok(())
+    //     }) {
+    //         return Err(Box::new(reason));
+    //     }
+    // }
+
+    // version 3
+    // for entry in WalkDir::new(&config.dir) {
+    //     entry.and_then(|entry| { insert_if_timestamped(config, &mut files, entry); Ok(()) })?;
+    // }
+
+    // version 4
+    // WalkDir::new(&config.dir)
+    //     .into_iter()
+    //     .try_for_each(|entry| {
+    //         entry.and_then(|entry| {
+    //             insert_if_timestamped(config, &mut files, entry);
+    //             Ok(())
+    //         })
+    //     })?;
+
+    // version 5
+    let mut plan = Plan::new();
+    let max_depth = if config.recurse { usize::MAX } else { 1 };
+    WalkDir::new(&config.dir)
+        .max_depth(max_depth)
+        .sort_by_file_name()
+        .into_iter()
+        .try_for_each(|entry| {
+            entry.map(|entry| {
+                maybe_insert(config, &mut plan, entry);
+            })
+        })?;
+    Ok(plan)
 }
 
-fn date(filename: &str) -> Option<(&str, &str, &str)> {
-    lazy_static! {
-        // YYYY?MM?DD or YYYYMMDD,
-        // where YYYY in [1000-2999], MM in [01-12], DD in [01-31]
-        static ref RE: Regex = Regex::new(r"\D*(1\d\d\d|20\d\d).?(0[1-9]|1[012]).?(0[1-9]|[12]\d|30|31)\D*").unwrap();
-    }
-    RE.captures(filename).map(|captures| {
-        let year = captures.get(1).unwrap().as_str();
-        let month = captures.get(2).unwrap().as_str();
-        let day = captures.get(3).unwrap().as_str();
-        (year, month, day)
-    })
+/// Returns true if the directory entry has an extension of `jpg`, `jpeg`, `tif`, `tiff`, `webp`, or `png`.
+fn is_image(entry: &Path) -> bool {
+    entry
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|ext| {
+            ext.ends_with("jpg")
+                || ext.ends_with("jpeg")
+                || ext.ends_with("tif")
+                || ext.ends_with("tiff")
+                || ext.ends_with("webp")
+                || ext.ends_with("png")
+        })
 }
 
-fn create_directory(config: &TimeStampSortConfig, directory: &Path) -> io::Result<()> {
-    if !config.dryrun {
-        let mut full_path = PathBuf::new();
-        full_path.push(directory);
-        match fs::create_dir(&full_path) {
-            Ok(_) => return Ok(()),
-            Err(reason) => match reason.kind() {
-                io::ErrorKind::AlreadyExists => return Ok(()),
-                _ => return Err(reason),
-            },
+/// Given a directory entry, will insert it into the map of files to be
+/// relocated to their destinations, if the entry is a regular file, is not
+/// hidden, is an image, and a date can be extracted from the file either from
+/// its filename, exif data, or if its creation date is not today.
+fn maybe_insert(config: &TimeStampSortArgs, plan: &mut Plan, entry: DirEntry) {
+    let entry_path = entry.into_path();
+    if entry_path.is_file() && !crate::ocd::is_hidden(&entry_path) && is_image(&entry_path) {
+        if let Some((source, path)) = destination(config, &entry_path) {
+            let action = Action::Move {
+                date_source: Some(source),
+                path,
+            };
+            plan.insert(entry_path, action);
         }
     }
-    Ok(())
 }
 
-fn move_file(config: &TimeStampSortConfig, from: &Path, dest: &Path) -> io::Result<()> {
-    let mut to = PathBuf::new();
-    to.push(dest);
-    to.push(from.file_name().unwrap());
-
-    crate::ocd::output::file_move(config.verbosity, from, &to);
-
-    if !config.dryrun {
-        if config.undo {
-            // TODO implement undo script
-        }
-        fs::rename(from, to)?
-    }
-    Ok(())
+/// This function tries to determine a destination for a given file.
+/// - It first tries to find a date in the file name, by matching it against a regex.
+/// - If that fails, it tries to examine the EXIF data to find a datetime field.
+/// - If that fails, it tries to figure out a data from the filesystem metadata,
+///   by looking at the created date field. If however the creation date is today,
+///   it is discarded as we can assume that the original creation date has been lost.
+fn destination(config: &TimeStampSortArgs, path: &PathBuf) -> Option<(DateSource, PathBuf)> {
+    filename_date(path)
+        .or_else(|| exif_date(path))
+        .or_else(|| metadata_date(path))
+        .map(|(source, year, month, day)| {
+            let pathbuf = config.dir.join(format!("{year}-{month}-{day}"));
+            (source, pathbuf)
+        })
 }

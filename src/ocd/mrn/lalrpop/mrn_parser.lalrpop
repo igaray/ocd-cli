@@ -1,0 +1,110 @@
+use crate::ocd::mrn::pattern_match::process_match;
+use crate::ocd::mrn::pattern_match::process_replace;
+use crate::ocd::mrn::program::Instruction;
+use crate::ocd::mrn::program::Position;
+use crate::ocd::mrn::program::ReplaceArg;
+use crate::ocd::mrn::lalrpop::mrn_tokens::Token;
+use crate::ocd::mrn::lalrpop::mrn_tokens::LexicalError;
+use lalrpop_util::ParseError;
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "stringvalue" => Token::StringValue(<String>),
+        "index" => Token::Index(<usize>),
+        "'" => Token::Apostrophe,
+        "," => Token::Comma,
+        "s" => Token::Sanitize,
+        "cl" => Token::CaseLower,
+        "cu" => Token::CaseUpper,
+        "ct" => Token::CaseTitle,
+        "cs" => Token::CaseSentence,
+        "jc" => Token::JoinCamel,
+        "js" => Token::JoinSnake,
+        "jk" => Token::JoinKebab,
+        "sc" => Token::SplitCamel,
+        "ss" => Token::SplitSnake,
+        "sk" => Token::SplitKebab,
+        "rdp" => Token::ReplaceDashPeriod,
+        "rds" => Token::ReplaceDashSpace,
+        "rdu" => Token::ReplaceDashUnderscore,
+        "rpd" => Token::ReplacePeriodDash,
+        "rps" => Token::ReplacePeriodSpace,
+        "rpu" => Token::ReplacePeriodUnderscore,
+        "rsd" => Token::ReplaceSpaceDash,
+        "rsp" => Token::ReplaceSpacePeriod,
+        "rsu" => Token::ReplaceSpaceUnderscore,
+        "rud" => Token::ReplaceUnderscoreDash,
+        "rup" => Token::ReplaceUnderscorePeriod,
+        "rus" => Token::ReplaceUnderscoreSpace,
+        "r" => Token::Replace,
+        "i" => Token::Insert,
+        "end" => Token::End,
+        "d" => Token::Delete,
+        "ea" => Token::ExtensionAdd,
+        "er" => Token::ExtensionRemove,
+        "o" => Token::Reorder,
+        "p" => Token::PatternMatch,
+    }
+}
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub Program = Comma<Operation>;
+
+Operation: Instruction = {
+    "s" => Instruction::Sanitize,
+    "cl" => Instruction::CaseLower,
+    "cu" => Instruction::CaseUpper,
+    "ct" => Instruction::CaseTitle,
+    "cs" => Instruction::CaseSentence,
+    "jc" => Instruction::JoinCamel,
+    "js" => Instruction::JoinSnake,
+    "jk" => Instruction::JoinKebab,
+    "sc" => Instruction::SplitCamel,
+    "ss" => Instruction::SplitSnake,
+    "sk" => Instruction::SplitKebab,
+    "rdp" => Instruction::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Period },
+    "rds" => Instruction::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Space },
+    "rdu" => Instruction::Replace{ pattern: ReplaceArg::Dash, replace: ReplaceArg::Underscore },
+    "rpd" => Instruction::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Dash },
+    "rps" => Instruction::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Space },
+    "rpu" => Instruction::Replace{ pattern: ReplaceArg::Period, replace: ReplaceArg::Underscore },
+    "rsd" => Instruction::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Dash },
+    "rsp" => Instruction::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Period },
+    "rsu" => Instruction::Replace{ pattern: ReplaceArg::Space, replace: ReplaceArg::Underscore },
+    "rud" => Instruction::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Dash },
+    "rup" => Instruction::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Period },
+    "rus" => Instruction::Replace{ pattern: ReplaceArg::Underscore, replace: ReplaceArg::Space },
+    "r" <p:"stringvalue"> <r:"stringvalue"> => Instruction::Replace{ pattern: ReplaceArg::Text(p), replace: ReplaceArg::Text(r) },
+    "i" <p:Position> <s:"stringvalue"> => Instruction::Insert{position: p, text: s},
+    "d" <f:"index"> <t:Position> => Instruction::Delete{from: f, to: t},
+    "ea" <e:"stringvalue"> => Instruction::ExtensionAdd(e),
+    "er" => Instruction::ExtensionRemove,
+    "o" => Instruction::Reorder,
+    "p" <m:"stringvalue"> <r:"stringvalue"> =>? {
+        let m = process_match(m);
+        match process_replace(r) {
+            Ok(r) => Ok(Instruction::PatternMatch{ match_pattern: m, replace_pattern: r }),
+            Err(_e) => Err(ParseError::User{ error: LexicalError::InvalidReplacePattern }), // TOOD do something with this error
+            }
+        },
+}
+
+// A position may either be the keyword 'end' or an index.
+Position: Position = {
+    "end" => Position::End,
+    <i:"index"> => Position::Index(i),
+}

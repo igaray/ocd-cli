@@ -1,39 +1,30 @@
-mod ocd;
-
-#[macro_use]
 extern crate clap;
 extern crate exif;
-extern crate lazy_static;
+extern crate lalrpop_util;
 extern crate regex;
 extern crate walkdir;
 
-use crate::ocd::config::Config;
-use crate::ocd::Command;
-use std::process;
-use tracing::{span, Level};
+use crate::clap::Parser;
+use crate::ocd::Cli;
+use crate::ocd::OcdCommand;
+
+mod ocd;
 
 fn main() {
-    let span = span!(Level::TRACE, "main");
-    let _guard = span.enter();
-
-    let config = Config::new().with_args().unwrap_or_else(|error| {
-        eprintln!("{}", error);
-        process::exit(1)
-    });
-
-    match config.subcommand {
-        Some(Command::MassRename { ref config }) => {
-            if let Err(reason) = crate::ocd::mrn::run(config) {
-                eprintln!("{}", reason);
-                process::exit(1)
+    let cli = Cli::parse();
+    match cli.command {
+        OcdCommand::MassRename(args) => {
+            if let Err(error) = crate::ocd::mrn::run(&args) {
+                println!("Error: {:?}", error);
             }
         }
-        Some(Command::TimeStampSort { ref config }) => {
-            if let Err(reason) = crate::ocd::tss::run(config) {
-                eprintln!("{}", reason);
-                process::exit(1)
+        OcdCommand::TimeStampSort(args) => {
+            if let Err(error) = crate::ocd::tss::run(&args) {
+                println!("Error: {:?}", error);
             }
         }
-        None => unreachable!(),
+        _ => {
+            todo!("This subcommand has not been implemented yet!");
+        }
     }
 }
