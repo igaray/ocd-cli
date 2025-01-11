@@ -320,7 +320,7 @@ fn is_hidden(entry: &Path) -> bool {
     entry
         .file_name()
         .and_then(|s| s.to_str())
-        .map_or(false, |s| (s != "." || s != "./") && s.starts_with('.'))
+        .is_some_and(|s| (s != "." || s != "./") && s.starts_with('.'))
 }
 
 /// Given a path, creates a directory.

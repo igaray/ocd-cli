@@ -162,13 +162,13 @@ fn is_image(entry: &Path) -> bool {
     entry
         .extension()
         .and_then(|s| s.to_str())
-        .map_or(false, |s| {
-            s.ends_with("jpg")
-                || s.ends_with("jpeg")
-                || s.ends_with("tif")
-                || s.ends_with("tiff")
-                || s.ends_with("webp")
-                || s.ends_with("png")
+        .is_some_and(|ext| {
+            ext.ends_with("jpg")
+                || ext.ends_with("jpeg")
+                || ext.ends_with("tif")
+                || ext.ends_with("tiff")
+                || ext.ends_with("webp")
+                || ext.ends_with("png")
         })
 }
 
