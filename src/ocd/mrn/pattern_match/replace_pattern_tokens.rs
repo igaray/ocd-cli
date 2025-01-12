@@ -34,8 +34,8 @@ pub enum Token {
     OpeningBrace,
     #[token("}", priority = 3)]
     ClosingBrace,
-    #[token("{date}")]
-    DateGenerator,
+    #[token("{sha}")]
+    ShaGenerator,
     #[token("{sng")]
     SequentialNumberGenerator,
     #[token("{rng")]

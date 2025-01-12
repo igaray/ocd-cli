@@ -18,7 +18,7 @@ impl Program {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, strum_macros::Display)]
 pub enum Instruction {
     Sanitize,
     CaseLower,
@@ -88,6 +88,7 @@ pub struct ReplacePattern {
 pub enum ReplacePatternComponent {
     Literal(String),
     Florb(usize),
+    ShaGenerator,
     RandomNumberGenerator {
         start: usize,
         end: usize,

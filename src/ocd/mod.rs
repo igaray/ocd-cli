@@ -227,6 +227,9 @@ impl Plan {
     }
 
     fn present_long(&self) {
+        println!(
+            "--------------------------------------------------------------------------------"
+        );
         println!("Result:");
         for (src, action) in &self.actions {
             match action {
