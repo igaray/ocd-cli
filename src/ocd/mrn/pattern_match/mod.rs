@@ -6,7 +6,7 @@ use crate::ocd::Verbosity;
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
 use regex::Regex;
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
 pub mod replace_pattern_lexer;
@@ -57,7 +57,7 @@ pub fn process_replace(
 pub fn apply(
     config: &MassRenameArgs,
     index: usize,
-    src: &PathBuf,
+    src: &Path,
     filename: &str,
     match_pattern: &str,
     replace_pattern: &ReplacePattern,

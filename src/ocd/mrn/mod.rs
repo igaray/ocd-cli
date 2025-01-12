@@ -20,6 +20,7 @@ use heck::ToUpperCamelCase;
 use regex::Regex;
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use walkdir::WalkDir;
@@ -330,7 +331,7 @@ fn apply_program(
                 println!("    action:      {}", action);
                 println!("    instruction: {}", instruction);
             }
-            apply_instruction(config, index, src, instruction, action);
+            apply_instruction(config, index, src.as_path(), instruction, action);
         }
     }
     plan.clean();
@@ -340,7 +341,7 @@ fn apply_program(
 fn apply_instruction(
     config: &MassRenameArgs,
     index: usize,
-    src: &PathBuf,
+    src: &Path,
     instruction: &Instruction,
     action: &mut Action,
 ) {
