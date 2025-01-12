@@ -162,6 +162,7 @@ mod test {
     use crate::ocd::mrn::program::ReplacePatternComponent;
     use crate::ocd::Cli;
     use crate::ocd::OcdCommand;
+    use std::path::Path;
 
     fn test_pattern(
         index: usize,
@@ -175,7 +176,14 @@ mod test {
             let match_pattern = super::process_match(String::from(match_pattern_str));
             let replace_pattern =
                 super::process_replace(String::from(replace_pattern_str)).unwrap();
-            let result = super::apply(&config, index, filename, &match_pattern, &replace_pattern);
+            let result = super::apply(
+                &config,
+                index,
+                Path::new(filename),
+                filename,
+                &match_pattern,
+                &replace_pattern,
+            );
             assert_eq!(expected, result);
         } else {
             panic!()
