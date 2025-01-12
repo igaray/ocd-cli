@@ -13,7 +13,6 @@ use crate::ocd::Plan;
 use crate::ocd::Speaker;
 use crate::ocd::Verbosity;
 use clap::Args;
-use clap::ValueEnum;
 use heck::ToKebabCase;
 use heck::ToSnakeCase;
 use heck::ToTitleCase;
@@ -21,6 +20,7 @@ use heck::ToUpperCamelCase;
 use regex::Regex;
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use walkdir::WalkDir;
@@ -71,11 +71,6 @@ Default is low, one medium, two high, three or more debug."#)]
     #[arg(short = 'm')]
     #[arg(long)]
     mode: Mode,
-
-    #[arg(default_value = "lalrpop")]
-    #[arg(help = "Specifies with parser to use.")]
-    #[arg(long)]
-    parser: crate::ocd::mrn::MassRenameParser,
 
     #[arg(help = "Recurse directories.")]
     #[arg(long)]
@@ -135,24 +130,15 @@ impl Speaker for MassRenameArgs {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum MassRenameParser {
-    Handwritten,
-    Lalrpop,
-}
-
 pub(crate) fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
     if config.verbosity() >= Verbosity::Silent {
         println!("Verbosity: {:?}", config.verbosity())
     }
 
     // Parse instructions
-    let program = match config.parser {
-        MassRenameParser::Handwritten => parse_with_handwritten(config)?,
-        MassRenameParser::Lalrpop => parse_with_lalrpop(config)?,
-    };
+    let program = parse_with_lalrpop(config)?;
     if config.verbosity() >= Verbosity::Debug {
-        println!("Program: \n{:#?}", &program);
+        println!("{:#?}", &program);
     }
 
     // Initialize plan
@@ -177,10 +163,6 @@ pub(crate) fn run(config: &MassRenameArgs) -> Result<(), Box<dyn Error + '_>> {
         plan.execute()?;
     }
     Ok(())
-}
-
-fn parse_with_handwritten(_config: &MassRenameArgs) -> Result<Program, Box<dyn Error + '_>> {
-    todo!("Parsing with the handwritten parser is not implemented yet!")
 }
 
 fn parse_with_lalrpop(config: &MassRenameArgs) -> Result<Program, Box<dyn Error + '_>> {
@@ -340,13 +322,16 @@ fn apply_program(
     for instruction in program.instructions() {
         for (index, (src, action)) in plan.actions.iter_mut().enumerate() {
             if config.verbosity() == Verbosity::Debug {
+                println!(
+                    "--------------------------------------------------------------------------------"
+                );
                 println!("Applying");
-                println!("    instruction: {:?}", instruction);
-                println!("    index:       {:?}", index);
+                println!("    index:       {}", index);
                 println!("    src:         {:?}", src);
-                println!("    action:      {:?}", action);
+                println!("    action:      {}", action);
+                println!("    instruction: {}", instruction);
             }
-            apply_instruction(config, index, instruction, action);
+            apply_instruction(config, index, src.as_path(), instruction, action);
         }
     }
     plan.clean();
@@ -356,6 +341,7 @@ fn apply_program(
 fn apply_instruction(
     config: &MassRenameArgs,
     index: usize,
+    src: &Path,
     instruction: &Instruction,
     action: &mut Action,
 ) {
@@ -423,7 +409,7 @@ fn apply_instruction(
                 match_pattern: pattern,
                 replace_pattern: replace,
             } => {
-                let filename = pattern_match::apply(config, index, filename, pattern, replace);
+                let filename = pattern_match::apply(config, index, src, filename, pattern, replace);
                 crate::ocd::rename_file(path, filename);
             }
             Instruction::ExtensionAdd(extension) => {

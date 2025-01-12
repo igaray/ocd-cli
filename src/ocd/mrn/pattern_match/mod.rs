@@ -6,6 +6,8 @@ use crate::ocd::Verbosity;
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
 use regex::Regex;
+use std::path::Path;
+use std::process::Command;
 
 pub mod replace_pattern_lexer;
 pub mod replace_pattern_tokens;
@@ -55,32 +57,42 @@ pub fn process_replace(
 pub fn apply(
     config: &MassRenameArgs,
     index: usize,
+    src: &Path,
     filename: &str,
     match_pattern: &str,
     replace_pattern: &ReplacePattern,
 ) -> String {
     let florb_matches = extract_florb_matches(filename, match_pattern);
     if config.verbosity() == Verbosity::Debug {
-        println!("Pattern match instruction");
-        println!("    index: {index:?}");
-        println!("    filename: {filename:?}");
-        println!("    input match pattern: {match_pattern:?}");
-        println!("    input replace pattern: {replace_pattern:?}");
-        println!("    florb matches: {florb_matches:?}");
+        println!("    Pattern match instruction debug information:");
+        println!("        filename:        {filename:?}");
+        println!("        match_pattern:   {match_pattern:?}");
+        println!("        replace_pattern: {replace_pattern:?}");
+        println!("        florb matches:   {florb_matches:?}");
     }
 
-    let mut filename = String::new();
+    let mut new_filename = String::new();
     for rpc in &replace_pattern.components {
         match rpc {
             ReplacePatternComponent::Florb(ref index) => {
                 // TODO error/warning message if the else happens, and in general check florb indexes
                 // if a florb index was not there, perhaps it should cancel the entire apply and just return the input
                 if let Some(florb_match) = florb_matches.get(*index - 1) {
-                    filename.push_str(florb_match.as_str())
+                    new_filename.push_str(florb_match.as_str())
                 }
             }
             ReplacePatternComponent::Literal(literal) => {
-                filename.push_str(literal.as_str());
+                new_filename.push_str(literal.as_str());
+            }
+            ReplacePatternComponent::ShaGenerator => {
+                let output = Command::new("sha256sum")
+                    .args([src.as_os_str()])
+                    .output()
+                    .expect("Error invoking sha256sum.");
+                if output.status.success() {
+                    let sha = String::from_utf8(output.stdout[0..64].to_vec()).unwrap();
+                    new_filename.push_str(&sha);
+                }
             }
             ReplacePatternComponent::RandomNumberGenerator {
                 start,
@@ -91,7 +103,7 @@ pub fn apply(
                 let mut rng = rand::thread_rng();
                 let n: usize = between.sample(&mut rng);
                 let num = format!("{:0padding$}", n);
-                filename.push_str(num.as_str());
+                new_filename.push_str(num.as_str());
             }
             ReplacePatternComponent::SequentialNumberGenerator {
                 start,
@@ -99,11 +111,11 @@ pub fn apply(
                 padding,
             } => {
                 let num = format!("{:0padding$}", start + (index * step));
-                filename.push_str(num.as_str());
+                new_filename.push_str(num.as_str());
             }
         }
     }
-    filename
+    new_filename
 }
 
 /// Extract data from filename using the match pattern
@@ -150,6 +162,7 @@ mod test {
     use crate::ocd::mrn::program::ReplacePatternComponent;
     use crate::ocd::Cli;
     use crate::ocd::OcdCommand;
+    use std::path::Path;
 
     fn test_pattern(
         index: usize,
@@ -163,7 +176,14 @@ mod test {
             let match_pattern = super::process_match(String::from(match_pattern_str));
             let replace_pattern =
                 super::process_replace(String::from(replace_pattern_str)).unwrap();
-            let result = super::apply(&config, index, filename, &match_pattern, &replace_pattern);
+            let result = super::apply(
+                &config,
+                index,
+                Path::new(filename),
+                filename,
+                &match_pattern,
+                &replace_pattern,
+            );
             assert_eq!(expected, result);
         } else {
             panic!()

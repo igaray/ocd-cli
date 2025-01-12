@@ -42,6 +42,8 @@ kamadak-exif = "*"
 # string wrangling
 heck = "*"
 chrono-tz = "0.10.0"
+strum = "0.26.3"
+strum_macros = "0.26.4"
 #unicode-segmentation = "*"
 
 # output
