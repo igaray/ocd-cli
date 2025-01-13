@@ -570,14 +570,42 @@ fn apply_delete(filename: &str, from_idx: usize, to: &Position) -> String {
     s
 }
 
-fn apply_interactive_reorder(_filename: &str) -> String {
-    // split filename into substrings
+fn apply_interactive_reorder(filename: &str) -> String {
+    // split filename into fields
+    let fields: Vec<_> = filename.split(' ').collect();
+
     // print each substring with its index below
-    // read user input
-    let _input = crate::ocd::user_input();
-    // process input into a series of indices
+    let mut idx_line = String::new();
+    for (idx, field) in fields.iter().enumerate() {
+        let w = field.len() + 1;
+        let w = if idx < 10 { w } else { w - 1 };
+        idx_line.push_str(format!("{1:<0$}", w, idx + 1).as_str());
+    }
+    println!("    {}", filename);
+    println!("    {}", idx_line);
+
+    // read user input & process  into a series of indices
+    let input = crate::ocd::user_input();
+    let input = input.split(' ').map(|e| str::parse::<usize>(e));
+
+    // all the integers must be parseable and also valid indexes into fields.
+    if input
+        .clone()
+        .any(|e| e.is_err() || e.as_ref().unwrap() > &fields.len())
+    {
+        panic!("Unable to parse user input or invalid index.")
+    }
+    let input: Vec<_> = input.map(|e| e.unwrap()).collect();
+
     // generate new string
-    todo!("Interactive reorder instruction not implemented yet!")
+    let mut result = String::new();
+    for i in input.iter().take(input.len() - 1) {
+        result.push_str(fields[i - 1]);
+        result.push_str(" ");
+    }
+    result.push_str(fields[*input.last().unwrap() - 1]);
+
+    result
 }
 
 #[cfg(test)]
