@@ -586,7 +586,7 @@ fn apply_interactive_reorder(filename: &str) -> String {
 
     // read user input & process  into a series of indices
     let input = crate::ocd::user_input();
-    let input = input.split(' ').map(|e| str::parse::<usize>(e));
+    let input = input.split(' ').map(str::parse::<usize>);
 
     // all the integers must be parseable and also valid indexes into fields.
     if input
@@ -601,7 +601,7 @@ fn apply_interactive_reorder(filename: &str) -> String {
     let mut result = String::new();
     for i in input.iter().take(input.len() - 1) {
         result.push_str(fields[i - 1]);
-        result.push_str(" ");
+        result.push(' ');
     }
     result.push_str(fields[*input.last().unwrap() - 1]);
 
